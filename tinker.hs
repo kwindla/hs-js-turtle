@@ -44,8 +44,8 @@ tokenize (c : cs)
     | otherwise         = error $ "could not tokenize " ++ [c]
 
 -- and a grammar for evaluating resulting list of tokens
---   this started as a standard LL-parseable grammar cribbed from
---   the interwebs, then got crufty
+--   this started as a standard LL-parseable calculator 
+--   grammar cribbed from the interwebs, then got crufty
 
 -- Expression-List  -> Expression Expression-List |
 --                     empty
@@ -67,7 +67,7 @@ tokenize (c : cs)
 -- 
 
 parse :: [Token] -> Double
-parse tokens = let (emptyTokenSequence, result) = expression tokens 0
+parse tokens = let (emptyTokenSequence, result) = expressionList tokens 0
                in result
 
 -- all of the grammar production functions take a list of 
