@@ -21,7 +21,9 @@ data Operator = Plus | Minus | Times | Div
 data Token = TokenOperator Operator |
              TokenNumber   Double   |
              TokenLeftParen         |
-             TokenRightParen
+             TokenRightParen        |
+             TokenLeftBrace         |
+             TokenRightBrace
   deriving (Show, Eq)
 
 
@@ -31,6 +33,8 @@ tokenize (c : cs)
     | isSpace c         = tokenize cs
     | c == '('          = TokenLeftParen  : tokenize cs
     | c == ')'          = TokenRightParen : tokenize cs
+    | c == '{'          = TokenLeftBrace  : tokenize cs
+    | c == '}'          = TokenRightBrace : tokenize cs
     | c == '+'          = TokenOperator Plus    : tokenize cs
     | c == '-'          = TokenOperator Minus   : tokenize cs
     | c == '*'          = TokenOperator Times   : tokenize cs
@@ -40,9 +44,11 @@ tokenize (c : cs)
     | otherwise         = error $ "could not tokenize " ++ [c]
 
 -- and a grammar for evaluating resulting list of tokens
---   this is a standard LL-parseable grammar cribbed from
---   the interwebs
+--   this started as a standard LL-parseable grammar cribbed from
+--   the interwebs, then got crufty
 
+-- Expression-List  -> Expression Expression-List |
+--                     empty
 -- Expression       -> Term Expression-Tail
 -- Expression-Tail  -> + Term Expression-Tail |
 --                     - Term Expression-Tail |
@@ -51,8 +57,14 @@ tokenize (c : cs)
 -- Term-Tail        -> * Factor Term-Tail |
 --                     / Factor Term-Tail |
 --                     empty
--- Factor           -> ( Expression ) | [+-] Expression | Number
-
+-- Factor           -> ( Expression )           |
+--                     { Factor-Expression-List |
+--                     [+-] Expression          | 
+--                     Number
+-- Factor-Expression-List -> } |
+--                           Expression Factor-Expression-List
+--   
+-- 
 
 parse :: [Token] -> Double
 parse tokens = let (emptyTokenSequence, result) = expression tokens 0
@@ -61,6 +73,12 @@ parse tokens = let (emptyTokenSequence, result) = expression tokens 0
 -- all of the grammar production functions take a list of 
 --   tokens and an accumulatar of the calc result
 --   ... and they all return a tuple of same
+
+expressionList :: [Token] -> Double -> ([Token], Double)
+expressionList [] result = ([], result)
+expressionList tokens result =
+    let (tokens', result') = expression tokens result
+    in                       expressionList tokens' result'
 
 expression :: [Token] -> Double -> ([Token], Double)
 expression tokens result =
@@ -73,6 +91,7 @@ term tokens result =
     in                       termTail tokens' result'
 
 expressionTail :: [Token] -> Double -> ([Token], Double)
+expressionTail [] result = ([], result)
 expressionTail (t:ts) result
   | t == (TokenOperator Plus) = 
       let (tokens', result') = term ts result
@@ -81,7 +100,6 @@ expressionTail (t:ts) result
       let (tokens', result') = term ts result
       in                       expressionTail tokens' (result - result')
   | otherwise = (t:ts, result)
-expressionTail [] result = ([], result)
 
 factor :: [Token] -> Double -> ([Token], Double)
 factor ((TokenNumber num):ts) result = (ts, num)
@@ -90,10 +108,21 @@ factor ((TokenLeftParen):ts) result =
     in if head tokens' == TokenRightParen
        then (tail tokens', result')
        else error "saw something other than close paren"
+factor ((TokenLeftBrace):ts) result = 
+    let (tokens', result') = factorExpressionList ts result
+    in                       (tokens', result')
 factor ((TokenOperator Plus):ts) result = expression ts result
 factor ((TokenOperator Minus):ts) result = 
     let (tokens', result') = expression ts result
-    in (tokens', -1 * result')
+    in                       (tokens', -1 * result')
+
+factorExpressionList :: [Token] -> Double -> ([Token], Double)
+factorExpressionList [] result = 
+    error "unexpected end of token stream inside exprlist"
+factorExpressionList ((TokenRightBrace):ts) result = (ts, result)
+factorExpressionList tokens result =
+    let (tokens', result') = expression tokens result
+    in                       factorExpressionList tokens' result'
 
 termTail :: [Token] -> Double -> ([Token], Double)
 termTail (t:ts) result
