@@ -6,7 +6,7 @@ import Data.Char
 
 --
 
-main = print $ parse $ tokenize "2 + (4 + 3 + (7 - 5) * 300)" 
+main = print $ evaluate $ head $ parse $ tokenize "2 + (4 + 3 + (7 - 5) * 300)" 
 
 --
 
@@ -59,78 +59,104 @@ tokenize (c : cs)
 --                     empty
 -- Factor           -> ( Expression )           |
 --                     { Factor-Expression-List |
---                     [+-] Expression          | 
+--                     [+-] Factor              | 
 --                     Number
 -- Factor-Expression-List -> } |
 --                           Expression Factor-Expression-List
 --   
+
+type ExprList = [ExprTree]
+data ExprTree = UnaryOpMinus ExprTree        |
+                BinOpPlus ExprTree ExprTree  | 
+                BinOpMinus ExprTree ExprTree |
+                BinOpTimes ExprTree ExprTree |
+                BinOpDiv ExprTree ExprTree   |
+                ConstantNumber Double        |
+                ExprTreeListNode ExprList
+              deriving (Show)
+
+
+parse :: [Token] -> ExprList
+parse tokens = let (emptyTokenSequence, exprs) = expressionList tokens []
+               in exprs
+
+-- 
+-- 
 -- 
 
-parse :: [Token] -> Double
-parse tokens = let (emptyTokenSequence, result) = expressionList tokens 0
-               in result
+expressionList :: [Token] -> ExprList -> ([Token], ExprList)
+expressionList [] exprs = ([], exprs)
+expressionList tokens exprs =
+    let (tokens', tree) = expression tokens
+    in                    expressionList tokens' (exprs ++ [tree])
 
--- all of the grammar production functions take a list of 
---   tokens and an accumulatar of the calc result
---   ... and they all return a tuple of same
+expression :: [Token] -> ([Token], ExprTree)
+expression tokens =
+    let (tokens', exprt') = term tokens 
+    in                      expressionTail tokens' exprt'
+                            
+term :: [Token] -> ([Token], ExprTree)
+term tokens =
+    let (tokens', exprt) = factor tokens
+    in                     termTail tokens' exprt
 
-expressionList :: [Token] -> Double -> ([Token], Double)
-expressionList [] result = ([], result)
-expressionList tokens result =
-    let (tokens', result') = expression tokens result
-    in                       expressionList tokens' result'
+expressionTail :: [Token] -> ExprTree -> ([Token], ExprTree)
+expressionTail [] exprt = ([], exprt)
+expressionTail (t:ts) exprt
+  | t == (TokenOperator Plus) =                       -- (result + result')
+      let (tokens', exprt') = term ts
+      in                      expressionTail tokens' (BinOpPlus exprt exprt')
+  | t == (TokenOperator Minus) =                      -- (result - result')
+      let (tokens', exprt') = term ts
+      in                      expressionTail tokens' (BinOpMinus exprt exprt')
+  | otherwise = (t:ts, exprt)
 
-expression :: [Token] -> Double -> ([Token], Double)
-expression tokens result =
-    let (tokens', result') = term tokens result
-    in                       expressionTail tokens' result'
-
-term :: [Token] -> Double -> ([Token], Double)
-term tokens result =
-    let (tokens', result') = factor tokens result
-    in                       termTail tokens' result'
-
-expressionTail :: [Token] -> Double -> ([Token], Double)
-expressionTail [] result = ([], result)
-expressionTail (t:ts) result
-  | t == (TokenOperator Plus) = 
-      let (tokens', result') = term ts result
-      in                       expressionTail tokens' (result + result')
-  | t == (TokenOperator Minus) =
-      let (tokens', result') = term ts result
-      in                       expressionTail tokens' (result - result')
-  | otherwise = (t:ts, result)
-
-factor :: [Token] -> Double -> ([Token], Double)
-factor ((TokenNumber num):ts) result = (ts, num)
-factor ((TokenLeftParen):ts) result = 
-    let (tokens', result') = expression ts result
+factor :: [Token] -> ([Token], ExprTree)
+factor ((TokenNumber num):ts) = (ts, ConstantNumber num)
+factor ((TokenLeftParen):ts) = 
+    let (tokens', exprt) = expression ts
     in if head tokens' == TokenRightParen
-       then (tail tokens', result')
+       then (tail tokens', exprt)
        else error "saw something other than close paren"
-factor ((TokenLeftBrace):ts) result = 
-    let (tokens', result') = factorExpressionList ts result
-    in                       (tokens', result')
-factor ((TokenOperator Plus):ts) result = expression ts result
-factor ((TokenOperator Minus):ts) result = 
-    let (tokens', result') = expression ts result
-    in                       (tokens', -1 * result')
+factor ((TokenLeftBrace):ts) = 
+    let (tokens', exprl) = factorExpressionList ts []
+    in                     (tokens', ExprTreeListNode exprl)
+factor ((TokenOperator Plus):ts) = expression ts
+factor ((TokenOperator Minus):ts) =        -- (-1 * result')
+    let (tokens', exprt) = factor ts
+    in                     (tokens', UnaryOpMinus exprt)
 
-factorExpressionList :: [Token] -> Double -> ([Token], Double)
-factorExpressionList [] result = 
+factorExpressionList :: [Token] -> ExprList -> ([Token], ExprList)
+factorExpressionList [] _ = 
     error "unexpected end of token stream inside exprlist"
-factorExpressionList ((TokenRightBrace):ts) result = (ts, result)
-factorExpressionList tokens result =
-    let (tokens', result') = expression tokens result
-    in                       factorExpressionList tokens' result'
+factorExpressionList ((TokenRightBrace):ts) exprl = (ts, exprl)
+factorExpressionList tokens exprl =
+    let (tokens', exprl') = expression tokens
+    in                      factorExpressionList tokens' (exprl ++ [exprl'])
 
-termTail :: [Token] -> Double -> ([Token], Double)
-termTail (t:ts) result
+termTail :: [Token] -> ExprTree -> ([Token], ExprTree)
+termTail (t:ts) exprt
   | t == (TokenOperator Times) =
-      let (tokens', result') = factor ts result
-      in                       termTail tokens' (result * result')
+      let (tokens', exprt') = factor ts
+      in                      termTail tokens' (BinOpTimes exprt exprt')
   | t == (TokenOperator Div) =
-      let (tokens', result') = term ts result
-      in                       termTail tokens' (result / result')
-  | otherwise = (t:ts, result)
-termTail [] result = ([], result)
+      let (tokens', exprt') = term ts
+      in                      termTail tokens' (BinOpDiv exprt exprt')
+  | otherwise = (t:ts, exprt)
+termTail [] exprt = ([], exprt)
+
+
+evaluate :: ExprTree -> Double
+evaluate (UnaryOpMinus exprt) = - (evaluate exprt)
+evaluate (BinOpPlus left right) = (evaluate left) + (evaluate right)
+evaluate (BinOpMinus left right) = (evaluate left) - (evaluate right)
+evaluate (BinOpTimes left right) = (evaluate left) * (evaluate right)
+evaluate (BinOpDiv left right) = (evaluate left) / (evaluate right)
+evaluate (ConstantNumber num) = num
+evaluate (ExprTreeListNode exprl) = evalList exprl 0
+  where evalList [] lastResult = lastResult
+        evalList (e:es) lastResult = evalList es (evaluate e)
+
+--
+--
+ 
