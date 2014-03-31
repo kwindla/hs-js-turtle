@@ -18,8 +18,10 @@ main = print $ evaluate $ head $ parse $ tokenize "2 + (4 + 3 + (7 - 5) * 300)"
 data Operator = Plus | Minus | Times | Div 
   deriving (Show, Eq)
 
-data Token = TokenOperator Operator |
+data Token = TokenEquals            |
+             TokenOperator Operator |
              TokenNumber   Double   |
+             TokenSymbol   Char     |
              TokenLeftParen         |
              TokenRightParen        |
              TokenLeftBrace         |
@@ -31,6 +33,8 @@ tokenize :: String -> [Token]
 tokenize [] = []
 tokenize (c : cs)
     | isSpace c         = tokenize cs
+    | isAlpha c         = TokenSymbol c : tokenize cs
+    | c == '='          = TokenEquals     : tokenize cs
     | c == '('          = TokenLeftParen  : tokenize cs
     | c == ')'          = TokenRightParen : tokenize cs
     | c == '{'          = TokenLeftBrace  : tokenize cs
@@ -49,7 +53,9 @@ tokenize (c : cs)
 
 -- Expression-List  -> Expression Expression-List |
 --                     empty
--- Expression       -> Term Expression-Tail
+-- Expression       -> Symbol = Expression        |
+--                     Term Expression-Tail
+-- Assignment       -> Symbol = Expression
 -- Expression-Tail  -> + Term Expression-Tail |
 --                     - Term Expression-Tail |
 --                     empty
@@ -60,18 +66,21 @@ tokenize (c : cs)
 -- Factor           -> ( Expression )           |
 --                     { Factor-Expression-List |
 --                     [+-] Factor              | 
---                     Number
+--                     Number                   |
+--                     Symbol
 -- Factor-Expression-List -> } |
 --                           Expression Factor-Expression-List
 --   
 
 type ExprList = [ExprTree]
-data ExprTree = UnaryOpMinus ExprTree        |
+data ExprTree = Assignment Char ExprTree     |
+                UnaryOpMinus ExprTree        |
                 BinOpPlus ExprTree ExprTree  | 
                 BinOpMinus ExprTree ExprTree |
                 BinOpTimes ExprTree ExprTree |
                 BinOpDiv ExprTree ExprTree   |
                 ConstantNumber Double        |
+                Symbol Char                  |
                 ExprTreeListNode ExprList
               deriving (Show)
 
@@ -91,6 +100,9 @@ expressionList tokens exprs =
     in                    expressionList tokens' (exprs ++ [tree])
 
 expression :: [Token] -> ([Token], ExprTree)
+expression ((TokenSymbol sym):TokenEquals:ts) = 
+    let (tokens, exprt) = expression ts
+    in                    (tokens, Assignment sym exprt)
 expression tokens =
     let (tokens', exprt') = term tokens 
     in                      expressionTail tokens' exprt'
@@ -113,6 +125,7 @@ expressionTail (t:ts) exprt
 
 factor :: [Token] -> ([Token], ExprTree)
 factor ((TokenNumber num):ts) = (ts, ConstantNumber num)
+factor ((TokenSymbol c):ts) = (ts, Symbol c)
 factor ((TokenLeftParen):ts) = 
     let (tokens', exprt) = expression ts
     in if head tokens' == TokenRightParen
