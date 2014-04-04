@@ -7,7 +7,8 @@ import qualified Data.Map as Map
 
 --
 
-main = print $ evaluate $ head $ parse $ tokenize "2 + (4 + 3 + (7 - 5) * 300)" 
+-- do something like - runString "P{A=4 P=2 P+A}PA"
+--                or - (parse . tokenize) "a=4 P"
 
 --
 
@@ -101,7 +102,6 @@ expressionList [] exprs = ([], exprs)
 expressionList tokens exprs =
   let (tokens', tree) = expression tokens
   in                    expressionList tokens' (exprs ++ [tree])
-
 expression :: [Token] -> ([Token], ExprTree)
 expression ((TokenSymbol sym):TokenEquals:ts) =                   -- assignment
   let (tokens, exprt) = expression ts
@@ -109,11 +109,9 @@ expression ((TokenSymbol sym):TokenEquals:ts) =                   -- assignment
 expression (TokenDefun:(TokenSymbol sym):(TokenNumber num):ts) =  -- defun
   let (tokens, exprt) = expression ts
   in                    (tokens, Defun sym (truncate num) exprt)
-      
 expression tokens =
   let (tokens', exprt') = term tokens 
   in                      expressionTail tokens' exprt'
-                            
 term :: [Token] -> ([Token], ExprTree)
 term tokens =
   let (tokens', exprt) = factor tokens
@@ -172,16 +170,56 @@ termTail (t:ts) exprt
 termTail [] exprt = ([], exprt)
 
 
-evaluate :: ExprTree -> Double
-evaluate (UnaryOpMinus exprt) = - (evaluate exprt)
-evaluate (BinOpPlus left right) = (evaluate left) + (evaluate right)
-evaluate (BinOpMinus left right) = (evaluate left) - (evaluate right)
-evaluate (BinOpTimes left right) = (evaluate left) * (evaluate right)
-evaluate (BinOpDiv left right) = (evaluate left) / (evaluate right)
-evaluate (ConstantNumber num) = num
-evaluate (ExprTreeListNode exprl) = evalList exprl 0
-  where evalList [] lastResult = lastResult
-        evalList (e:es) lastResult = evalList es (evaluate e)
+evaluate :: SymbolTable -> ExprTree -> (SymbolTable, Double)
+evaluate st (Assignment sym exprt) =
+  let (st', num) = evaluate st exprt
+  in (updateBinding sym (BoundValue num) st', num)
+evaluate st (Symbol sym) =
+  let binding = retrBinding sym st
+  in case binding of
+    (BoundValue num) -> (st, num)
+    otherwise -> error "don't know other bindings yet"
+evaluate st (UnaryOpMinus exprt) = 
+  let (st', num) = evaluate st exprt
+  in (st', -num)
+evaluate st (BinOpPlus left right) =
+  let (stl, numl) = evaluate st left
+      (str, numr) = evaluate stl right
+  in (str, numl + numr)
+evaluate st (BinOpMinus left right) =
+  let (stl, numl) = evaluate st left
+      (str, numr) = evaluate stl right
+  in (str, numl - numr)
+evaluate st (BinOpTimes left right) =
+  let (stl, numl) = evaluate st left
+      (str, numr) = evaluate stl right
+  in (str, numl * numr)
+evaluate st (BinOpDiv left right) =
+  let (stl, numl) = evaluate st left
+      (str, numr) = evaluate stl right
+  in (str, numl / numr)
+evaluate st (ConstantNumber num) = (st, num)
+evaluate st (ExprTreeListNode exprl) =
+  let (st', last) = evalList st exprl 0
+        where evalList st [] last = (st, last)
+              evalList st (e:es) last = 
+                let (st', last') = evaluate st e
+                in evalList st' es last'
+  in (st, last) -- return original symbol table, not this block's modded table
+                -- we're "popping the stack", here, at the end of the block
+
+runString :: String -> [Double]
+runString str =
+  let exprl           = (parse . tokenize) str
+      (symt, numbers) = _eval globalTable exprl []
+  in numbers
+    where _eval symt [] accum = (symt, accum)
+          _eval symt (e:es) accum =
+            let (symt', num) = evaluate symt e
+            in _eval symt' es (accum ++ [num])
+
+  -- map (\(st,num) -> num) $
+  --              map (evaluate globalTable) $ (parse . tokenize) str
 
 --
 --
@@ -199,7 +237,7 @@ data SymbolTable = ScopedTable SymbolTableMap SymbolTable |
                    GlobalTable SymbolTableMap
   deriving (Show)
 
-globalTable = GlobalTable $ Map.fromList [('P', BoundValue 3.1)]
+globalTable = GlobalTable $ Map.fromList [('P', BoundValue pi)]
 
 derivedTable :: SymbolTableMapList -> SymbolTable -> SymbolTable
 derivedTable list parent = ScopedTable (Map.fromList list) parent
