@@ -24,7 +24,8 @@ data Token = TokenEquals            |
              TokenLeftBrace         |
              TokenRightBrace        |
              TokenDefun             |
-             TokenIf
+             TokenIf                |
+             TokenRepeat
            deriving (Show, Eq)
 
 tokenize :: String -> [Token]
@@ -43,6 +44,7 @@ tokenize (c : cs)
   | c == '/'          = TokenOperator Div     : tokenize cs
   | c == '&'          = TokenDefun            : tokenize cs
   | c == '?'          = TokenIf               : tokenize cs
+  | c == '#'          = TokenRepeat           : tokenize cs
   | isDigit c         = let (numstr, cs') = span isDigit (c:cs)
                         in TokenNumber (read numstr) : tokenize cs'
   | otherwise         = error $ "could not tokenize " ++ [c]
@@ -66,6 +68,7 @@ tokenize (c : cs)
 -- Factor           -> ( Expression )                     |
 --                     { Factor-Expression-List           |
 --                     ? Expression Expression Expression |
+--                     # Expression Expression            |
 --                     [+-] Factor                        | 
 --                     Number                             |
 --                     Symbol
@@ -80,6 +83,7 @@ type ExprList = [ExprTree]
 data ExprTree = Assignment Char ExprTree             |
                 Defun Char Int ExprTree              |
                 TernaryIf ExprTree ExprTree ExprTree |
+                Repeat    ExprTree ExprTree          |
                 UnaryOpMinus ExprTree                |
                 BinOpPlus ExprTree ExprTree          | 
                 BinOpMinus ExprTree ExprTree         |
@@ -144,6 +148,10 @@ factor (TokenIf:ts) =
   in let (ts'', exprt') = expression ts'
      in let (ts''', exprt'') = expression ts''
         in (ts''', TernaryIf exprt exprt' exprt'')
+factor (TokenRepeat:ts) =
+  let (ts', exprt) = expression ts
+  in let (ts'', exprt') = expression ts'
+     in (ts'', Repeat exprt exprt')
 
 factor ((TokenOperator Plus):ts) = expression ts
 factor ((TokenOperator Minus):ts) =        -- (-1 * result')
@@ -169,8 +177,10 @@ termTail (t:ts) exprt
   | otherwise = (t:ts, exprt)
 termTail [] exprt = ([], exprt)
 
+--
 
 evaluate :: SymbolTable -> ExprTree -> (SymbolTable, Double)
+
 evaluate st (Assignment sym exprt) =
   let (st', num) = evaluate st exprt
   in (updateBinding sym (BoundValue num) st', num)
@@ -179,34 +189,56 @@ evaluate st (Symbol sym) =
   in case binding of
     (BoundValue num) -> (st, num)
     otherwise -> error "don't know other bindings yet"
+
 evaluate st (UnaryOpMinus exprt) = 
   let (st', num) = evaluate st exprt
   in (st', -num)
-evaluate st (BinOpPlus left right) =
-  let (stl, numl) = evaluate st left
-      (str, numr) = evaluate stl right
-  in (str, numl + numr)
-evaluate st (BinOpMinus left right) =
-  let (stl, numl) = evaluate st left
-      (str, numr) = evaluate stl right
-  in (str, numl - numr)
-evaluate st (BinOpTimes left right) =
-  let (stl, numl) = evaluate st left
-      (str, numr) = evaluate stl right
-  in (str, numl * numr)
-evaluate st (BinOpDiv left right) =
-  let (stl, numl) = evaluate st left
-      (str, numr) = evaluate stl right
-  in (str, numl / numr)
+evaluate st (BinOpPlus left right)  = _el2 (+) st left right
+evaluate st (BinOpMinus left right) = _el2 (-) st left right
+evaluate st (BinOpTimes left right) = _el2 (*) st left right
+evaluate st (BinOpDiv left right)   = _el2 (/) st left right
 evaluate st (ConstantNumber num) = (st, num)
+
+evaluate st (TernaryIf eCond eIf eThen) =
+  let (st', num) = evaluate st eCond
+  in if (not $ num==0)
+        then evaluate st' eIf
+        else evaluate st' eThen             
+
 evaluate st (ExprTreeListNode exprl) =
-  let (st', last) = evalList st exprl 0
-        where evalList st [] last = (st, last)
-              evalList st (e:es) last = 
-                let (st', last') = evaluate st e
-                in evalList st' es last'
-  in (st, last) -- return original symbol table, not this block's modded table
-                -- we're "popping the stack", here, at the end of the block
+  let (st', last) = evaluateExprList st exprl 0
+  in (st, last) -- return original symbol table, not the list block's
+                -- modded table. we're "popping the stack", here, at
+                -- the end of the block
+
+-- two definitions of evaluate on Repeat. the first one is specialized
+-- for expression lists in the repeatee position. only difference is
+-- that we hand-manage the symbol table context in the block case,
+-- treating the loop as one context, then "popping" the modified
+-- symbol table when the repeat finishes.
+evaluate st (Repeat eNumTimes (ExprTreeListNode exprl)) =
+  let (st', numTimes) = evaluate st eNumTimes
+      (_, lastResult) = repeat numTimes st' exprl 0
+  in (st', lastResult)
+  where repeat 0 st'' _ last  = (st'', last)
+        repeat n st'' exprl _ =
+          let (st''', result) = evaluateExprList st'' exprl 0
+          in repeat (n-1) st''' exprl result
+evaluate st (Repeat eNumTimes exprt) =
+  let (st', numTimes) = evaluate st eNumTimes
+  in repeat numTimes st' exprt 0
+  where repeat 0 st'' _ last  = (st'', last)
+        repeat n st'' exprt _ =
+          let (st''', result) = evaluate st'' exprt
+          in repeat (n-1) st''' exprt result
+
+evaluateExprList :: SymbolTable -> ExprList -> Double -> (SymbolTable, Double)
+evaluateExprList st [] lastResult = (st, lastResult)
+evaluateExprList st (e:es) _ =
+  let (st', result) = evaluate st e
+  in evaluateExprList st' es result
+
+--
 
 runString :: String -> [Double]
 runString str =
@@ -260,4 +292,19 @@ updateBinding sym binding (ScopedTable map parent) =
 updateBinding sym binding (GlobalTable map) =
   GlobalTable $ Map.insert sym binding map
 
+
+
+--
+
+-- reduce boilerplate in binary operator evaluate() cases by lifting
+-- haskell binary operators to work on a pair of expression
+-- trees. tempting to generalize this further and rework the evaluate
+-- function to be built around functorish lines. that would require
+-- some refactoring, though.
+_el2 :: (Double -> Double -> Double) -> SymbolTable ->
+        ExprTree -> ExprTree -> (SymbolTable, Double)
+_el2 f st left right =
+  let (st', numl) = evaluate st left
+      (st'', numr) = evaluate st' right
+  in (st'', f numl numr)
 
