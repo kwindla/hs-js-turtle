@@ -91,6 +91,7 @@ data ExprTree = Assignment Char ExprTree             |
                 BinOpDiv ExprTree ExprTree           |
                 ConstantNumber Double                |
                 Symbol Char                          |
+                Funcall Int Char ExprList            |
                 ExprTreeListNode ExprList
               deriving (Show)
 
@@ -106,6 +107,7 @@ expressionList [] exprs = ([], exprs)
 expressionList tokens exprs =
   let (tokens', tree) = expression tokens
   in                    expressionList tokens' (exprs ++ [tree])
+
 expression :: [Token] -> ([Token], ExprTree)
 expression ((TokenSymbol sym):TokenEquals:ts) =                   -- assignment
   let (tokens, exprt) = expression ts
@@ -134,7 +136,16 @@ expressionTail (t:ts) exprt
 
 factor :: [Token] -> ([Token], ExprTree)
 factor ((TokenNumber num):ts) = (ts, ConstantNumber num)
-factor ((TokenSymbol c):ts) = (ts, Symbol c)
+factor ((TokenSymbol c):ts) = 
+  case retrBinding c globalTable of
+    BoundValue _ -> (ts, Symbol c)
+    BoundBuiltin arity _ -> parseFurther arity arity c ts []
+    BoundDefun arity _   -> parseFurther arity arity c ts []
+  where parseFurther 0 arity c tokens exprl = (tokens, Funcall arity c exprl)
+        parseFurther n arity c tokens exprl =
+          let (tokens', exprt) = expression tokens 
+          in parseFurther (n-1) arity c tokens' (exprl ++ [exprt])
+        
 factor ((TokenLeftParen):ts) = 
   let (tokens', exprt) = expression ts
   in if head tokens' == TokenRightParen
@@ -188,7 +199,14 @@ evaluate st (Symbol sym) =
   let binding = retrBinding sym st
   in case binding of
     (BoundValue num) -> (st, num)
-    otherwise -> error "don't know other bindings yet"
+    otherwise -> error "shouldn't see other bindings here in Symbol eval def"
+evaluate st (Funcall arity sym exprl) =
+  let binding = retrBinding sym st
+  in case binding of
+    (BoundBuiltin arityInTable f) ->
+      if (arityInTable /= arity)
+        then error $ "mismatch in arg count for " ++ [sym]
+        else (st, f exprl)
 
 evaluate st (UnaryOpMinus exprt) = 
   let (st', num) = evaluate st exprt
@@ -269,7 +287,10 @@ data SymbolTable = ScopedTable SymbolTableMap SymbolTable |
                    GlobalTable SymbolTableMap
   deriving (Show)
 
-globalTable = GlobalTable $ Map.fromList [('P', BoundValue pi)]
+globalTable = GlobalTable $ Map.fromList 
+  [ ('P', BoundValue pi)
+   ,('F', BoundBuiltin 1 (\exprts -> 456.3))
+  ]
 
 derivedTable :: SymbolTableMapList -> SymbolTable -> SymbolTable
 derivedTable list parent = ScopedTable (Map.fromList list) parent
