@@ -2,8 +2,8 @@
 import Control.Monad.State
 
 
-startState = Counter 23
-testList = [11..21]
+testStartState = Counter 101
+testList = [1..10]
 
 -- data definition for the stateful Counter that we'll use throughout
 
@@ -63,27 +63,61 @@ xfrmNthSOps ints 0 = xfrmS ints
 xfrmNthSOps ints@(i:is) idx = xfrmSOps ints >> xfrmNthSOps is (idx-1)
 
 
+-- rewrite get and put to do the manipulations ourselves so that we
+-- know how to write more sophisticated (and encapsulating) functions
+-- that match up with the State Monad's assumptions, should we so
+-- desire
+
+get' :: State Counter Counter
+get' = state (\c -> (c ,c)) 
+
+put' :: Counter -> State Counter ()
+put' c = state (\_ -> ((), c))
+  
+xfrmS' :: [Int] -> State Counter String
+xfrmS' (i:is) = do
+  counter@(Counter c) <- get'
+  put' $ Counter (c+1)
+  return $ show i ++ show counter
+
+xfrmNthS' :: [Int] -> Int -> State Counter String
+xfrmNthS' ints 0 = xfrmS' ints
+xfrmNthS' ints@(i:is) idx = do 
+  xfrmS' ints
+  xfrmNthS' is (idx-1)
+
+
+--
+ 
+main = do
+  print $ xfrmNth testStartState testList 2
+  print $ runState (xfrmNthS testList 2) testStartState
+  print $ runState (xfrmNthSOps testList 2) testStartState
+  print $ runState (xfrmNthS' testList 2) testStartState
+   
+  -- print $ runState (xfrmS testList) testStartState
+
+
+
 {-
 
-type MyState = Int
- 
-valFromState :: MyState -> Int
-valFromState s = -s
-nextState :: MyState->MyState
-nextState x = 1+x
- 
-type MyStateMonad  = State MyState 
- 
--- this is it, the State transformation.  Add 1 to the state, return -1*the state as the computed value.
-getNext ::   MyStateMonad  Int
-getNext  = state  (\st -> let st' = nextState(st) in (valFromState(st'),st') )
+-- and for further head-scratching, try combining mapM with our above
+-- exercise. hmph. can't figure out how to simple "replace" the
+-- recursive bits of xfrmNth with a mapM (or similar) call.
+-- my understanding of the Monad[Transformer] stuff obviously is
+-- still very, very incompletel
+
+
+xfrmSLoop :: Int -> State Counter String
+xfrmSLoop i = do
+  counter@(Counter c) <- get
+  put $ Counter (c+1)
+  return $ show i ++ show counter
+  -- show i ++ show counter
+
+*Main> runState (mapM xfrmSLoop [1,2,3]) (Counter 0)
+(["1(c0)","2(c1)","3(c2)"],(c3))
 
 -}
 
-
-
-main = do
-  -- print $ xfrmNthA (Counter 23) testList 2
-  print $ runState (xfrmS testList) startState
-  print $ runState (xfrmNthS testList 2) startState
-   
+--
