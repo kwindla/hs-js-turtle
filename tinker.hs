@@ -3,6 +3,7 @@
 
 import Data.Char
 import qualified Data.Map as Map
+import Control.Monad.State
 
 
 --
@@ -49,6 +50,7 @@ tokenize (c : cs)
                         in TokenNumber (read numstr) : tokenize cs'
   | otherwise         = error $ "could not tokenize " ++ [c]
 
+
 -- and a grammar for evaluating resulting list of tokens
 --   this started as a standard LL-parseable calculator 
 --   grammar cribbed from the interwebs, then got crufty
@@ -76,22 +78,24 @@ tokenize (c : cs)
 --                           Expression Factor-Expression-List
 --   
 
--- fix: replace the Char types below, where they are Symbols, with a typedef
---
+data UnaryFunc = UnaryFunc String (Double -> Double)
+instance Show UnaryFunc where
+  show (UnaryFunc name f) = "(" ++ name ++ ")"
+    
+data BinaryFunc = BinaryFunc String (Double -> Double -> Double)
+instance Show BinaryFunc where
+  show (BinaryFunc name f) = "(" ++ name ++ ")"
 
 type ExprList = [ExprTree]
-data ExprTree = Assignment Char ExprTree             |
-                Defun Char Int ExprTree              |
-                TernaryIf ExprTree ExprTree ExprTree |
-                Repeat    ExprTree ExprTree          |
-                UnaryOpMinus ExprTree                |
-                BinOpPlus ExprTree ExprTree          | 
-                BinOpMinus ExprTree ExprTree         |
-                BinOpTimes ExprTree ExprTree         |
-                BinOpDiv ExprTree ExprTree           |
-                ConstantNumber Double                |
-                Symbol Char                          |
-                Funcall Int Char ExprList            |
+data ExprTree = Assignment Char ExprTree              |
+                Defun Char Int ExprTree               |
+                TernaryIf ExprTree ExprTree ExprTree  |
+                Repeat    ExprTree ExprTree           |
+                UnaryOp UnaryFunc ExprTree            |
+                BinaryOp BinaryFunc ExprTree ExprTree |
+                ConstantNumber Double                 |
+                Symbol Char                           |
+                Funcall Int Char ExprList             |
                 ExprTreeListNode ExprList
               deriving (Show)
 
@@ -128,10 +132,10 @@ expressionTail [] exprt = ([], exprt)
 expressionTail (t:ts) exprt
   | t == (TokenOperator Plus) =
     let (tokens', exprt') = term ts
-    in                      expressionTail tokens' (BinOpPlus exprt exprt')
+    in expressionTail tokens' (BinaryOp (BinaryFunc "+" (+)) exprt exprt')
   | t == (TokenOperator Minus) =
     let (tokens', exprt') = term ts
-    in                      expressionTail tokens' (BinOpMinus exprt exprt')
+    in expressionTail tokens' (BinaryOp (BinaryFunc "-" (-)) exprt exprt')
   | otherwise = (t:ts, exprt)
 
 factor :: [Token] -> ([Token], ExprTree)
@@ -167,7 +171,7 @@ factor (TokenRepeat:ts) =
 factor ((TokenOperator Plus):ts) = expression ts
 factor ((TokenOperator Minus):ts) =        -- (-1 * result')
   let (tokens', exprt) = factor ts
-  in                     (tokens', UnaryOpMinus exprt)
+  in (tokens', UnaryOp (UnaryFunc "-" negate) exprt)
 
 factorExpressionList :: [Token] -> ExprList -> ([Token], ExprList)
 factorExpressionList [] _ = 
@@ -181,80 +185,87 @@ termTail :: [Token] -> ExprTree -> ([Token], ExprTree)
 termTail (t:ts) exprt
   | t == (TokenOperator Times) =
     let (tokens', exprt') = factor ts
-    in                      termTail tokens' (BinOpTimes exprt exprt')
+    in termTail tokens' (BinaryOp (BinaryFunc "*" (*)) exprt exprt')
   | t == (TokenOperator Div) =
     let (tokens', exprt') = term ts
-    in                      termTail tokens' (BinOpDiv exprt exprt')
+    in termTail tokens' (BinaryOp (BinaryFunc "/" (/)) exprt exprt')
   | otherwise = (t:ts, exprt)
 termTail [] exprt = ([], exprt)
 
 --
+-- recursive evaluation
+--
+--
 
-evaluate :: SymbolTable -> ExprTree -> (SymbolTable, Double)
+-- State Monad to implicitly thread through the evaluator recursion
+--
+type EvalContext = State SymbolTable Double
 
-evaluate st (Assignment sym exprt) =
-  let (st', num) = evaluate st exprt
-  in (updateBinding sym (BoundValue num) st', num)
-evaluate st (Symbol sym) =
-  let binding = retrBinding sym st
-  in case binding of
-    (BoundValue num) -> (st, num)
-    otherwise -> error "shouldn't see other bindings here in Symbol eval def"
-evaluate st (Funcall arity sym exprl) =
-  let binding = retrBinding sym st
-  in case binding of
+
+evaluate :: ExprTree -> EvalContext
+
+evaluate (Assignment sym exprt) = do
+  num <- evaluate exprt
+  updateBinding sym (BoundValue num)
+     
+evaluate (Symbol sym) = do
+  st <- get
+  case (retrBinding sym st) of
+      (BoundValue num) -> return num
+      otherwise -> error "shouldn't see other bindings here in Symbol eval def"
+
+evaluate (Funcall arity sym exprl) = do
+  st <- get
+  case (retrBinding sym st) of
     (BoundBuiltin arityInTable f) ->
       if (arityInTable /= arity)
         then error $ "mismatch in arg count for " ++ [sym]
-        else (st, f exprl)
+        else return (f exprl)
 
-evaluate st (UnaryOpMinus exprt) = 
-  let (st', num) = evaluate st exprt
-  in (st', -num)
-evaluate st (BinOpPlus left right)  = _el2 (+) st left right
-evaluate st (BinOpMinus left right) = _el2 (-) st left right
-evaluate st (BinOpTimes left right) = _el2 (*) st left right
-evaluate st (BinOpDiv left right)   = _el2 (/) st left right
-evaluate st (ConstantNumber num) = (st, num)
+evaluate (UnaryOp (UnaryFunc _ f) exprt) = liftM f (evaluate exprt)
+evaluate (BinaryOp (BinaryFunc _ f) left right) =
+  liftM2 f (evaluate left) (evaluate right)  
+evaluate (ConstantNumber num) = return num
 
-evaluate st (TernaryIf eCond eIf eThen) =
-  let (st', num) = evaluate st eCond
-  in if (not $ num==0)
-        then evaluate st' eIf
-        else evaluate st' eThen             
+evaluate (TernaryIf eCond eIf eThen) = do
+  num <- evaluate eCond
+  if (not (num==0))
+    then evaluate eIf
+    else evaluate eThen
 
-evaluate st (ExprTreeListNode exprl) =
-  let (st', last) = evaluateExprList st exprl 0
-  in (st, last) -- return original symbol table, not the list block's
-                -- modded table. we're "popping the stack", here, at
-                -- the end of the block
+evaluate (ExprTreeListNode exprl) = do
+  original_st <- get
+  num <- evaluateExprList exprl 0
+  put original_st   -- put back the original symbol table, not the list
+  return num        -- block's modded table. we're "popping the stack"
+                    -- when exiting the expression list block
 
 -- two definitions of evaluate on Repeat. the first one is specialized
 -- for expression lists in the repeatee position. only difference is
 -- that we hand-manage the symbol table context in the block case,
 -- treating the loop as one context, then "popping" the modified
 -- symbol table when the repeat finishes.
-evaluate st (Repeat eNumTimes (ExprTreeListNode exprl)) =
-  let (st', numTimes) = evaluate st eNumTimes
-      (_, lastResult) = repeat numTimes st' exprl 0
-  in (st', lastResult)
-  where repeat 0 st'' _ last  = (st'', last)
-        repeat n st'' exprl _ =
-          let (st''', result) = evaluateExprList st'' exprl 0
-          in repeat (n-1) st''' exprl result
-evaluate st (Repeat eNumTimes exprt) =
-  let (st', numTimes) = evaluate st eNumTimes
-  in repeat numTimes st' exprt 0
-  where repeat 0 st'' _ last  = (st'', last)
-        repeat n st'' exprt _ =
-          let (st''', result) = evaluate st'' exprt
-          in repeat (n-1) st''' exprt result
+-- evaluate (Repeat eNumTimes (ExprTreeListNode exprl)) =
+--   let (st', numTimes) = evaluate st eNumTimes
+--       (_, lastResult) = repeat numTimes st' exprl 0
+--   in (st', lastResult)
+--   where repeat 0 st'' _ last  = (st'', last)
+--         repeat n st'' exprl _ =
+--           let (st''', result) = evaluateExprList st'' exprl 0
+--           in repeat (n-1) st''' exprl result
+-- evaluate (Repeat eNumTimes exprt) =
+--   let (st', numTimes) = evaluate st eNumTimes
+--   in repeat numTimes st' exprt 0
+--   where repeat 0 st'' _ last  = (st'', last)
+--         repeat n st'' exprt _ =
+--           let (st''', result) = evaluate st'' exprt
+--           in repeat (n-1) st''' exprt result
 
-evaluateExprList :: SymbolTable -> ExprList -> Double -> (SymbolTable, Double)
-evaluateExprList st [] lastResult = (st, lastResult)
-evaluateExprList st (e:es) _ =
-  let (st', result) = evaluate st e
-  in evaluateExprList st' es result
+evaluateExprList :: ExprList -> Double -> EvalContext
+evaluateExprList [] lastResult = return lastResult
+evaluateExprList (e:es) _ = do
+  result <- evaluate e
+  evaluateExprList es result
 
 --
 
@@ -265,7 +276,7 @@ runString str =
   in numbers
     where _eval symt [] accum = (symt, accum)
           _eval symt (e:es) accum =
-            let (symt', num) = evaluate symt e
+            let (num, symt') = runState (evaluate e) symt
             in _eval symt' es (accum ++ [num])
 
   -- map (\(st,num) -> num) $
@@ -307,11 +318,21 @@ retrBinding sym (GlobalTable map) =
     Just binding -> binding
     Nothing      -> BoundValue 0
 
-updateBinding :: Char -> Binding -> SymbolTable -> SymbolTable
-updateBinding sym binding (ScopedTable map parent) =
-  ScopedTable (Map.insert sym binding map) parent
-updateBinding sym binding (GlobalTable map) =
-  GlobalTable $ Map.insert sym binding map
+updateBinding :: Char -> Binding -> EvalContext
+updateBinding sym binding = do
+  st <- get
+  put $ case st of
+    (ScopedTable map parent) -> ScopedTable (Map.insert sym binding map) parent
+    (GlobalTable map) -> GlobalTable $ Map.insert sym binding map
+  case binding of
+    (BoundValue num) -> return num
+    otherwise        -> return 0
+
+-- updateBinding :: Char -> Binding -> SymbolTable -> SymbolTable
+-- updateBinding sym binding (ScopedTable map parent) =
+--   ScopedTable (Map.insert sym binding map) parent
+-- updateBinding sym binding (GlobalTable map) =
+--   GlobalTable $ Map.insert sym binding map
 
 
 
@@ -322,10 +343,10 @@ updateBinding sym binding (GlobalTable map) =
 -- trees. tempting to generalize this further and rework the evaluate
 -- function to be built around functorish lines. that would require
 -- some refactoring, though.
-_el2 :: (Double -> Double -> Double) -> SymbolTable ->
-        ExprTree -> ExprTree -> (SymbolTable, Double)
-_el2 f st left right =
-  let (st', numl) = evaluate st left
-      (st'', numr) = evaluate st' right
-  in (st'', f numl numr)
+-- _el2 :: (Double -> Double -> Double) -> SymbolTable ->
+--         ExprTree -> ExprTree -> (SymbolTable, Double)
+-- _el2 f st left right =
+--   let (st', numl) = evaluate st left
+--       (st'', numr) = evaluate st' right
+--   in (st'', f numl numr)
 
