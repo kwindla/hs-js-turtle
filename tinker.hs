@@ -229,60 +229,34 @@ evaluate (ConstantNumber num) = return num
 
 evaluate (TernaryIf eCond eIf eThen) = do
   num <- evaluate eCond
-  if (not (num==0))
-    then evaluate eIf
-    else evaluate eThen
+  if num /= 0 then evaluate eIf else evaluate eThen
 
 evaluate (ExprTreeListNode exprl) = do
   original_st <- get
-  num <- evaluateExprList exprl 0
-  put original_st   -- put back the original symbol table, not the list
-  return num        -- block's modded table. we're "popping the stack"
-                    -- when exiting the expression list block
+  results <- mapM evaluate exprl
+  put original_st -- "pop" the stack, putting the original symbol table
+                  -- back into our EvalContext state monad
+  return $ last results 
 
--- two definitions of evaluate on Repeat. the first one is specialized
--- for expression lists in the repeatee position. only difference is
--- that we hand-manage the symbol table context in the block case,
--- treating the loop as one context, then "popping" the modified
--- symbol table when the repeat finishes.
--- evaluate (Repeat eNumTimes (ExprTreeListNode exprl)) =
---   let (st', numTimes) = evaluate st eNumTimes
---       (_, lastResult) = repeat numTimes st' exprl 0
---   in (st', lastResult)
---   where repeat 0 st'' _ last  = (st'', last)
---         repeat n st'' exprl _ =
---           let (st''', result) = evaluateExprList st'' exprl 0
---           in repeat (n-1) st''' exprl result
--- evaluate (Repeat eNumTimes exprt) =
---   let (st', numTimes) = evaluate st eNumTimes
---   in repeat numTimes st' exprt 0
---   where repeat 0 st'' _ last  = (st'', last)
---         repeat n st'' exprt _ =
---           let (st''', result) = evaluate st'' exprt
---           in repeat (n-1) st''' exprt result
-
-evaluateExprList :: ExprList -> Double -> EvalContext
-evaluateExprList [] lastResult = return lastResult
-evaluateExprList (e:es) _ = do
-  result <- evaluate e
-  evaluateExprList es result
-
---
-
+evaluate (Repeat exprNumTimes exprt) = do
+  numTimes <- evaluate exprNumTimes
+  -- need to handle expression list blocks differently from bare
+  -- expressions, here for a block, we want to repeat multiple times
+  -- with a stateful symbol table across all repeats, then "pop" that
+  -- symbol table and throw it away.
+  results <- case exprt of
+    (ExprTreeListNode exprl) -> do
+      original_st <- get
+      r <- replicateM (floor numTimes) (liftM last (mapM evaluate exprl))
+      put original_st
+      return r
+    otherwise ->
+      replicateM (floor numTimes) (evaluate exprt)
+  return $ last results
+     
 runString :: String -> [Double]
-runString str =
-  let exprl           = (parse . tokenize) str
-      (symt, numbers) = _eval globalTable exprl []
-  in numbers
-    where _eval symt [] accum = (symt, accum)
-          _eval symt (e:es) accum =
-            let (num, symt') = runState (evaluate e) symt
-            in _eval symt' es (accum ++ [num])
+runString str = evalState (mapM evaluate ((parse . tokenize) str)) globalTable
 
-  -- map (\(st,num) -> num) $
-  --              map (evaluate globalTable) $ (parse . tokenize) str
-
---
 --
  
 data Binding = BoundValue   Double                      |
