@@ -1,0 +1,56 @@
+
+-- from turtleacademy.org
+
+$10 100 10{FIR90}
+
+#8{R45#6{#90{F1R2}R90}}
+
+#36{R10#8{F25L45}}
+
+
+-- from el.media.mit.edu logo primer
+&s0#4{F50R90}#36R10S
+
+&s2{?a>100S{FaRbsa+2b} 
+
+
+-- from Fundamentals of Python book by Lambert
+  -- good test for lexical scope would be to embed the line function
+  -- inside the curve function
+  --   http://books.google.com/books?id=VtfM3YGW5jYC&pg=PA265&lpg=PA265&dq=turtlegraphics+c-curve&source=bl&ots=9r_M6tHpkH&sig=3u6TemQ0lkfTwdG3SHfO8Dij-TU&hl=en&sa=X&ei=nic8U7qyKKjSyAGWyIDQBQ&ved=0CCsQ6AEwAA#v=onepage&q=turtlegraphics%20c-curve&f=false
+
+&l4{UMabDMcd}&c6{?f~0labcd{h=(a+b+c-d)/2 i=(b+c+d-a)/2 cabhie-1 chicde-1}}l50,-100,50,100,3
+
+
+--
+, -- whitespace
+Forward
+Right
+Left
+penUp
+pendOwn
+penupdoWntoggle
+Moveto
+Turnto
+#repeat
+$for
+-- &to
+~equals
+>gt
+<lt
+Stop
+getX
+getY
+Heading
+Pen -- 1 for down / 0 for up
+\mod
+%random
+
+color
+block
+circle
+polygon
+
+
+
+
