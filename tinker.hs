@@ -199,8 +199,102 @@ termTail [] exprt = ([], exprt)
 
 -- State Monad to implicitly thread through the evaluator recursion
 --
-type EvalContext = State SymbolTable Double
 
+data Turtle = Turtle { heading :: Double
+                     , pos     :: (Double, Double)
+                     , color   :: (Int, Int, Int)
+                     } deriving (Show)
+-- type TSL = ( Turtle, SymbolTable, [String] )
+type EvalContext = State TSL Double
+
+-- newEvalContext = TSL (Turtle 0 (0,0) (0,0,0)) globalTable  []
+
+getST = getST''
+
+getSTReg :: State TSL SymbolTable
+getSTReg = do
+  tsl <- get
+  return $ _st tsl
+  
+get' :: (TSL -> a) -> State TSL a
+get' f = do
+  tsl <- get
+  return $ f tsl
+
+getST' :: State TSL SymbolTable
+getST' = state (\s -> (s,s)) >>=
+           (\tsl -> return $ _st tsl)
+
+getST'' :: State TSL SymbolTable
+getST'' = state (\s -> (s,s)) >>=
+           (\tsl ->
+             state (\s' -> (_st tsl, s')))
+           
+getST''' :: State TSL SymbolTable
+getST''' = get >>= (\tsl -> return $ _st tsl)
+
+           
+
+
+  
+-- return :: a -> State s a
+-- return x = state ( \st -> (x, st) )
+
+-- getx :: (TSL -> a) -> State TSL a
+-- getx f = get >>= (\s -> return $ f s)
+-- getx f = get >>= (\s -> f s) >>= 
+
+--return (f s) = state ( \st -> (f s, st))
+-- getx f = get >>= (\s -> return $ f s)
+
+
+get'' :: (TSL -> a) -> (a -> b) -> State TSL b
+get'' f1 f2 = do
+  tsl <- get
+  let x = f1 tsl
+  return $ f2 x
+
+putST :: SymbolTable -> State TSL ()
+putST st = do
+  tsl <- get
+  put $ tsl { _st = st }
+
+getBinding :: Char -> State TSL Binding
+getBinding sym = do
+  st <- getST
+  return $ retrBinding sym st
+
+appendOutput :: String -> State TSL Double
+appendOutput str = do
+  tsl <- get
+  put $ tsl { _ls = (_ls tsl) ++ [str] }
+  return 0
+
+-- getTurtle :: State TSL Turtle
+-- getTurtle = do
+--   (turtle, _, _) <- get
+--   return turtle
+
+-- putTurtle :: Turtle -> State TSL ()
+-- putTurtle turtle = do
+--   (_, st, lines) <- get
+--   put $ (turtle, st, lines)
+
+
+-- getHeading :: State TSL Double
+-- getHeading = do
+--   turtle <- getTurtle
+--   return $ heading turtle
+
+-- putHeading :: Double -> State TSL Double
+-- putHeading num = do
+--   turtle <- getTurtle
+--   putTurtle turtle { heading = num }
+--   return num
+
+data TSL = TSL { _turtle :: Turtle, _st :: SymbolTable, _ls :: [String] }
+  deriving (Show)
+newTSL = TSL (Turtle 90.0 (1.0,1.0) (2,3,4)) globalTable [] 
 
 evaluate :: ExprTree -> EvalContext
 
@@ -209,18 +303,18 @@ evaluate (Assignment sym exprt) = do
   updateBinding sym (BoundValue num)
      
 evaluate (Symbol sym) = do
-  st <- get
-  case (retrBinding sym st) of
+  binding <- getBinding sym
+  case (binding) of
       (BoundValue num) -> return num
       otherwise -> error "shouldn't see other bindings here in Symbol eval def"
 
 evaluate (Funcall arity sym exprl) = do
-  st <- get
-  case (retrBinding sym st) of
+  binding <- getBinding sym
+  case (binding) of
     (BoundBuiltin arityInTable f) ->
       if (arityInTable /= arity)
         then error $ "mismatch in arg count for " ++ [sym]
-        else return (f exprl)
+        else f exprl
 
 evaluate (UnaryOp (UnaryFunc _ f) exprt) = liftM f (evaluate exprt)
 evaluate (BinaryOp (BinaryFunc _ f) left right) =
@@ -232,10 +326,10 @@ evaluate (TernaryIf eCond eIf eThen) = do
   if num /= 0 then evaluate eIf else evaluate eThen
 
 evaluate (ExprTreeListNode exprl) = do
-  original_st <- get
+  original_st <- getST
   results <- mapM evaluate exprl
-  put original_st -- "pop" the stack, putting the original symbol table
-                  -- back into our EvalContext state monad
+  putST original_st -- "pop" the stack, putting the original symbol table
+                    -- back into our EvalContext state monad
   return $ last results 
 
 evaluate (Repeat exprNumTimes exprt) = do
@@ -246,21 +340,27 @@ evaluate (Repeat exprNumTimes exprt) = do
   -- symbol table and throw it away.
   results <- case exprt of
     (ExprTreeListNode exprl) -> do
-      original_st <- get
+      original_st <- getST
       r <- replicateM (floor numTimes) (liftM last (mapM evaluate exprl))
-      put original_st
+      putST original_st
       return r
     otherwise ->
       replicateM (floor numTimes) (evaluate exprt)
   return $ last results
      
 runString :: String -> [Double]
-runString str = evalState (mapM evaluate ((parse . tokenize) str)) globalTable
+runString str = evalState
+                  (mapM evaluate ((parse . tokenize) str)) newTSL
+
+pgmString :: String -> [String]
+pgmString str = let tsl = execState (
+                      mapM evaluate ((parse . tokenize) str)) newTSL
+                in _ls tsl
 
 --
  
 data Binding = BoundValue   Double                      |
-               BoundBuiltin Int ([ExprTree] -> Double)  | 
+               BoundBuiltin Int ([ExprTree] -> EvalContext)  | 
                BoundDefun   Int (ExprTree -> [ExprTree] -> Double)
 instance Show Binding where
   show (BoundValue num) = "`" ++ (show num)
@@ -274,7 +374,10 @@ data SymbolTable = ScopedTable SymbolTableMap SymbolTable |
 
 globalTable = GlobalTable $ Map.fromList 
   [ ('P', BoundValue pi)
-   ,('F', BoundBuiltin 1 (\exprts -> 456.3))
+   ,('F', BoundBuiltin 1 (\exprts -> do
+                             n <- evaluate $ head exprts
+                             appendOutput ("FORWARD " ++ (show n))
+                             return n))
   ]
 
 derivedTable :: SymbolTableMapList -> SymbolTable -> SymbolTable
@@ -294,10 +397,12 @@ retrBinding sym (GlobalTable map) =
 
 updateBinding :: Char -> Binding -> EvalContext
 updateBinding sym binding = do
-  st <- get
-  put $ case st of
-    (ScopedTable map parent) -> ScopedTable (Map.insert sym binding map) parent
-    (GlobalTable map) -> GlobalTable $ Map.insert sym binding map
+  st <- getST
+  putST $ case st of
+    (ScopedTable map parent) ->
+      ScopedTable (Map.insert sym binding map) parent
+    (GlobalTable map) ->
+      GlobalTable $ Map.insert sym binding map
   case binding of
     (BoundValue num) -> return num
     otherwise        -> return 0
