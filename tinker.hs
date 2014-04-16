@@ -1,17 +1,82 @@
---
-
 
 import Data.Char
 import qualified Data.Map as Map
 import Control.Monad.State
+import Control.Arrow
+import Text.Printf
+import Data.List
+
+-- Examples:
+--   echo "#36{R10#8{F25L45}}" | runghc tinker.hs | display svg:-
+--   echo "#8{R45#6{#90{F1R2}R90}}" | runghc tinker.hs | display svg:-
+-- 
+-- to debug...  - runString "P{A=4 P=2 P+A}PA"
+--           or - (parse . tokenize) "a=4 P"
+
+main = interact ( intercalate " " . pgmString )
 
 
 --
 
--- do something like - runString "P{A=4 P=2 P+A}PA"
---                or - (parse . tokenize) "a=4 P"
+
+newTSL = TSL (Turtle (90.0) (100.0,100.0) (0,0,0)) globalTable svgPrelude 
+
+globalTable = GlobalTable $ Map.fromList 
+  [ ('P', BoundValue pi)
+  , ('F', BoundBuiltin 1 (\exprts -> biForward (head exprts)))
+  , ('R', BoundBuiltin 1 (\exprts -> biRotate subtract (head exprts)))
+  , ('L', BoundBuiltin 1 (\exprts -> biRotate (+) (head exprts)))
+  ]
+
+type Point = (Double , Double)
+x :: Point -> Double
+x p = fst p
+y :: Point -> Double
+y p = snd p
+
+shp :: (String, String) -> Point -> String
+shp n p = printf "%s=\"%.0f\" %s=\"%.0f\"" (fst n) (x p) (snd n) (y p)
+
+vplus :: Point -> Point -> Point
+vplus p0 p1 = ((x p0) + (x p1) , (y p0) + (y p1))
+
+vtimes :: Point -> Double -> Point
+vtimes p d = ((x p) * d , (y p) * d)
+
+-- turns a heading (in degrees) into a unit vector
+directionVectUnit :: Double -> Point
+directionVectUnit h =
+  let theta = 2 * pi * h / 360
+      in (cos(theta) , sin(theta))
+
+directionVect :: Double -> Double -> Point
+directionVect h dist = (directionVectUnit h) `vtimes` dist
+
+biForward :: ExprTree -> EvalContext
+biForward expr = do
+  dist <- evaluate expr
+  t <- gets $ view turtle
+  let p0 = view pos t
+      p1 = p0 `vplus` (directionVect (view heading t) dist)
+  modify $ set' turtle pos p1
+  appendOutput $ "<line " ++ (shp ("x1","y1") p0) ++ " " ++
+    (shp ("x2","y2") p1) ++ " style=\"stroke:rgb(0,0,0);stroke-width:2\" />"
+  -- appendOutput ("FORWARD " ++ (showf p0) ++ " -> " ++ (showf p1))
+  return dist
+
+biRotate :: (Double -> Double -> Double) -> ExprTree -> EvalContext
+biRotate f expr = do
+  num <- evaluate expr
+  modify $ update' turtle heading (f num)
+  return num
+
+
+svgPrelude = ["<svg width=\"200\" height=\"200\">"]
+svgPostlude = ["</svg>\n"]
+
 
 --
+
 
 data Operator = Plus | Minus | Times | Div 
   deriving (Show, Eq)
@@ -106,6 +171,7 @@ parse tokens = let (emptyTokenSequence, exprs) = expressionList tokens []
 
 -- 
 
+
 expressionList :: [Token] -> ExprList -> ([Token], ExprList)
 expressionList [] exprs = ([], exprs)
 expressionList tokens exprs =
@@ -192,109 +258,11 @@ termTail (t:ts) exprt
   | otherwise = (t:ts, exprt)
 termTail [] exprt = ([], exprt)
 
---
--- recursive evaluation
---
+
 --
 
--- State Monad to implicitly thread through the evaluator recursion
---
 
-data Turtle = Turtle { heading :: Double
-                     , pos     :: (Double, Double)
-                     , color   :: (Int, Int, Int)
-                     } deriving (Show)
--- type TSL = ( Turtle, SymbolTable, [String] )
 type EvalContext = State TSL Double
-
--- newEvalContext = TSL (Turtle 0 (0,0) (0,0,0)) globalTable  []
-
-getST = getST''
-
-getSTReg :: State TSL SymbolTable
-getSTReg = do
-  tsl <- get
-  return $ _st tsl
-  
-get' :: (TSL -> a) -> State TSL a
-get' f = do
-  tsl <- get
-  return $ f tsl
-
-getST' :: State TSL SymbolTable
-getST' = state (\s -> (s,s)) >>=
-           (\tsl -> return $ _st tsl)
-
-getST'' :: State TSL SymbolTable
-getST'' = state (\s -> (s,s)) >>=
-           (\tsl ->
-             state (\s' -> (_st tsl, s')))
-           
-getST''' :: State TSL SymbolTable
-getST''' = get >>= (\tsl -> return $ _st tsl)
-
-           
-
-
-  
--- return :: a -> State s a
--- return x = state ( \st -> (x, st) )
-
--- getx :: (TSL -> a) -> State TSL a
--- getx f = get >>= (\s -> return $ f s)
--- getx f = get >>= (\s -> f s) >>= 
-
---return (f s) = state ( \st -> (f s, st))
--- getx f = get >>= (\s -> return $ f s)
-
-
-get'' :: (TSL -> a) -> (a -> b) -> State TSL b
-get'' f1 f2 = do
-  tsl <- get
-  let x = f1 tsl
-  return $ f2 x
-
-putST :: SymbolTable -> State TSL ()
-putST st = do
-  tsl <- get
-  put $ tsl { _st = st }
-
-getBinding :: Char -> State TSL Binding
-getBinding sym = do
-  st <- getST
-  return $ retrBinding sym st
-
-appendOutput :: String -> State TSL Double
-appendOutput str = do
-  tsl <- get
-  put $ tsl { _ls = (_ls tsl) ++ [str] }
-  return 0
-
--- getTurtle :: State TSL Turtle
--- getTurtle = do
---   (turtle, _, _) <- get
---   return turtle
-
--- putTurtle :: Turtle -> State TSL ()
--- putTurtle turtle = do
---   (_, st, lines) <- get
---   put $ (turtle, st, lines)
-
-
--- getHeading :: State TSL Double
--- getHeading = do
---   turtle <- getTurtle
---   return $ heading turtle
-
--- putHeading :: Double -> State TSL Double
--- putHeading num = do
---   turtle <- getTurtle
---   putTurtle turtle { heading = num }
---   return num
-
-data TSL = TSL { _turtle :: Turtle, _st :: SymbolTable, _ls :: [String] }
-  deriving (Show)
-newTSL = TSL (Turtle 90.0 (1.0,1.0) (2,3,4)) globalTable [] 
 
 evaluate :: ExprTree -> EvalContext
 
@@ -304,7 +272,7 @@ evaluate (Assignment sym exprt) = do
      
 evaluate (Symbol sym) = do
   binding <- getBinding sym
-  case (binding) of
+  case binding of
       (BoundValue num) -> return num
       otherwise -> error "shouldn't see other bindings here in Symbol eval def"
 
@@ -355,13 +323,16 @@ runString str = evalState
 pgmString :: String -> [String]
 pgmString str = let tsl = execState (
                       mapM evaluate ((parse . tokenize) str)) newTSL
-                in _ls tsl
+                in (view outLines tsl) ++ svgPostlude
+
 
 --
  
+
 data Binding = BoundValue   Double                      |
                BoundBuiltin Int ([ExprTree] -> EvalContext)  | 
                BoundDefun   Int (ExprTree -> [ExprTree] -> Double)
+
 instance Show Binding where
   show (BoundValue num) = "`" ++ (show num)
 
@@ -372,13 +343,38 @@ data SymbolTable = ScopedTable SymbolTableMap SymbolTable |
                    GlobalTable SymbolTableMap
   deriving (Show)
 
-globalTable = GlobalTable $ Map.fromList 
-  [ ('P', BoundValue pi)
-   ,('F', BoundBuiltin 1 (\exprts -> do
-                             n <- evaluate $ head exprts
-                             appendOutput ("FORWARD " ++ (show n))
-                             return n))
-  ]
+data Turtle = Turtle { _heading :: Double
+                     , _pos     :: (Double, Double)
+                     , _color   :: (Int, Int, Int)
+                     } deriving (Show)
+
+data TSL = TSL { _turtle :: Turtle
+               , _symTab :: SymbolTable
+               , _outLines :: [String] } deriving (Show)
+
+turtle   = FRef { view = _turtle   , set = \x t -> t { _turtle = x } }
+symTab   = FRef { view = _symTab   , set = \x t -> t { _symTab = x } }
+outLines = FRef { view = _outLines , set = \x t -> t { _outLines = x } }
+heading  = FRef { view = _heading  , set = \x t -> t { _heading = x } }
+pos      = FRef { view = _pos      , set = \x t -> t { _pos = x } }
+color    = FRef { view = _color    , set = \x t -> t { _color = x } }
+
+getST = gets $ view symTab
+putST st = modify $ set symTab st  
+getBinding sym = gets $ retrBinding sym . view symTab
+appendOutput lines = modify $ update outLines (++[lines])    
+  
+updateBinding sym binding = do
+  st <- getST
+  putST $ case st of
+    (ScopedTable map parent) ->
+      ScopedTable (Map.insert sym binding map) parent
+    (GlobalTable map) ->
+      GlobalTable $ Map.insert sym binding map
+  case binding of
+    (BoundValue num) -> return num
+    otherwise        -> return 0
+
 
 derivedTable :: SymbolTableMapList -> SymbolTable -> SymbolTable
 derivedTable list parent = ScopedTable (Map.fromList list) parent
@@ -395,37 +391,30 @@ retrBinding sym (GlobalTable map) =
     Just binding -> binding
     Nothing      -> BoundValue 0
 
-updateBinding :: Char -> Binding -> EvalContext
-updateBinding sym binding = do
-  st <- getST
-  putST $ case st of
-    (ScopedTable map parent) ->
-      ScopedTable (Map.insert sym binding map) parent
-    (GlobalTable map) ->
-      GlobalTable $ Map.insert sym binding map
-  case binding of
-    (BoundValue num) -> return num
-    otherwise        -> return 0
-
--- updateBinding :: Char -> Binding -> SymbolTable -> SymbolTable
--- updateBinding sym binding (ScopedTable map parent) =
---   ScopedTable (Map.insert sym binding map) parent
--- updateBinding sym binding (GlobalTable map) =
---   GlobalTable $ Map.insert sym binding map
-
-
 
 --
 
--- reduce boilerplate in binary operator evaluate() cases by lifting
--- haskell binary operators to work on a pair of expression
--- trees. tempting to generalize this further and rework the evaluate
--- function to be built around functorish lines. that would require
--- some refactoring, though.
--- _el2 :: (Double -> Double -> Double) -> SymbolTable ->
---         ExprTree -> ExprTree -> (SymbolTable, Double)
--- _el2 f st left right =
---   let (st', numl) = evaluate st left
---       (st'', numr) = evaluate st' right
---   in (st'', f numl numr)
 
+-- Functional references. See (for example):
+-- http://twanvl.nl/blog/haskell/overloading-functional-references We
+-- could use Data.Lens or any of several other libraries. Nice to
+-- stick to Haskell 98, though, to maximize chances we can
+-- cross-compile this to javascript. Also it's fun to define these by
+-- hand here.
+
+data FRef s a = FRef
+      { view :: s -> a
+      , set :: a -> s -> s
+      }
+
+view' :: FRef a b -> FRef b c -> a -> c
+view' ref ref' = (view ref' . view ref) -- lifted compose, you know
+
+set' :: FRef a b -> FRef b c -> c -> a -> a
+set' ref ref' a s = ((set ref . set ref' a . view ref) s) s
+
+update :: FRef s a -> (a -> a) -> s -> s
+update ref f s = set ref (f (view ref s)) s
+
+update' :: FRef a b -> FRef b c -> (c -> c) -> a -> a
+update' ref ref' f s = ((set ref . update ref' f . view ref) s) s
