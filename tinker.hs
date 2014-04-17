@@ -203,9 +203,9 @@ expression = do
       -- we need to store the arity of the function defun so we can
       -- parse correctly. we don't care about anything other than the
       -- arity, so we'll just add a placeholder binding with a
-      -- do-nothing lambda in the function slot
+      -- do-nothing lambda in the function slot
       pcSetTokList ts
-      pcUpdateBinding sym $ BoundDefun (truncate arity) (ExprTreeListNode [])
+      pcUpdateBinding sym $ BoundDefun (truncate arity) (ExprTreeListNode []) globalTable
       Defun sym (truncate arity) `liftM` expression
     otherwise -> term >>= expressionTail
                           
@@ -238,7 +238,7 @@ factor = do
          BoundBuiltin arity _ -> do
            exprl <- replicateM arity expression
            return $ Funcall arity c exprl
-         BoundDefun arity _   -> do
+         BoundDefun arity _ _  -> do
            exprl <- replicateM arity expression
            return $ Funcall arity c exprl           
      TokenLeftParen -> do
@@ -297,25 +297,26 @@ evaluate (Symbol sym) = do
     otherwise -> error "shouldn't see other bindings here in Symbol eval def"
 
 evaluate (Defun sym arity exprt) = do
-  -- we need to put a binding in place so we can subsequently call
-  -- this function from future evaluate, um, calls. (we only put in
-  -- placeholders during parse, and even those wouldn't have been
-  -- saved for non-global contexts.)
-  updateBinding sym $ BoundDefun arity exprt
+  -- we need to put a binding in place (we only put in placeholders
+  -- during parse)
+  st <- getST
+  updateBinding sym $ BoundDefun arity exprt st
   return $ fromIntegral arity
 
 evaluate (Funcall arity sym args) = do
   binding <- getBinding sym
   case (binding) of
     (BoundBuiltin arityInTable f) -> f args
-    (BoundDefun arityInTable exprt) -> do
+    (BoundDefun arityInTable exprt fun_st) -> do
       -- we want to evaluate the each item in the args list and bind
-      -- the results to a..i in a new, local, symbol table. then we
-      -- can call the exprt from the defun
-      -- uh, oh. dynamic scope? feh. <-- FIX:
-      -- ZIP
+      -- the results to a..i in a new, local, symbol table.
+      --
+      -- uh, oh. dynamic scope?  feh. <-- FIX: we need a symtab slot
+      -- in the binding
+      argValues <- mapM evaluate args
+      let bindings = zip ['a'..'i'] (map BoundValue argValues)
       st <- getST
-      putST $ derivedTable [] st
+      putST $ derivedTable bindings fun_st
       result <- evaluate exprt
       putST st
       return result
@@ -367,16 +368,17 @@ pgmString str = let tsl = execState (
 
 data Binding = BoundValue   Double                      |
                BoundBuiltin Int ([ExprTree] -> EvalContext)  | 
-               BoundDefun   Int ExprTree
+               BoundDefun   Int ExprTree SymbolTable
 
 instance Show Binding where
   show (BoundValue num) = "`" ++ (show num)
   show (BoundBuiltin arity _) = "#" ++ (show arity)
-  show (BoundDefun arity _) = "&" ++ (show arity)
+  show (BoundDefun arity _ _) = "&" ++ (show arity)
 
 type SymbolTableMapList = [(Char, Binding)]
 type SymbolTableMap = (Map.Map Char Binding)
 
+FIX: -- use a Maybe so that there's only a single ST contructor
 data SymbolTable = ScopedTable SymbolTableMap SymbolTable |
                    GlobalTable SymbolTableMap
   deriving (Show)
@@ -415,7 +417,9 @@ updateBinding sym binding = do
 
 
 derivedTable :: SymbolTableMapList -> SymbolTable -> SymbolTable
-derivedTable list parent = ScopedTable (Map.fromList list) parent
+derivedTable list parent =
+  
+  ScopedTable (Map.fromList list) parent
 
 retrBinding :: Char -> SymbolTable -> Binding
 retrBinding sym (ScopedTable map parent) =
