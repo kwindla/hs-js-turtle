@@ -2,7 +2,6 @@
 import Data.Char
 import qualified Data.Map as Map
 import Control.Monad.State
-import Control.Arrow
 import Text.Printf
 import Data.List
 
@@ -172,44 +171,50 @@ parse tokens = evalState expressionList (tokens, globalTable)
 
 type ParseState = ([Token], SymbolTable)
 
--- pcGetTokList :: State ParseState ExprList
--- pcGetTokList = gets $ fst
--- pcGetSymTab = gets $ snd
-pcSetTokList tokens = modify $ \s -> (tokens, snd s)
-pcSetSymTab  st     = modify $ \s -> (fst s , st)
-
+pcSetTokList tokens     = modify $ \s -> (tokens, snd s)
+pcSetSymTab  st         = modify $ \s -> (fst s , st)
+-- FIX: clean this and the other updateBinding call up. they should
+-- share code. and shouldn't have to have the ugly case statement in
+-- the middle of the logic
+pcUpdateBinding sym binding = do
+  (_, st) <- get
+  pcSetSymTab $ case st of
+    (ScopedTable map parent) ->
+      ScopedTable (Map.insert sym binding map) parent
+    (GlobalTable map) ->
+      GlobalTable $ Map.insert sym binding map
+  return 0
 
 expressionList :: State ParseState ExprList
 expressionList = do
-  (tokens, st) <- get
+  (tokens, _) <- get
   case tokens of
     [] -> return []
     otherwise -> liftM2 (:) expression expressionList
 
 expression :: State ParseState ExprTree
 expression = do
-  (tokens, st) <- get
+  (tokens, _) <- get
   case tokens of
-    ((TokenSymbol sym):TokenEquals:ts) -> do                   -- assignment
+    ((TokenSymbol sym):TokenEquals:ts) -> do                    -- assignment
       pcSetTokList ts
-      exprt <- expression
-      return $ Assignment sym exprt
-    (TokenDefun:(TokenSymbol sym):(TokenNumber num):ts) -> do -- defun
+      (Assignment sym) `liftM` expression
+    (TokenDefun:(TokenSymbol sym):(TokenNumber arity):ts) -> do -- defun
+      -- we need to store the arity of the function defun so we can
+      -- parse correctly. we don't care about anything other than the
+      -- arity, so we'll just add a placeholder binding with a
+      -- do-nothing lambda in the function slot
       pcSetTokList ts
-      exprt <- expression
-      return $ Defun sym (truncate num) exprt
-    otherwise -> do
-      exprt <- term
-      expressionTail exprt
+      pcUpdateBinding sym $ BoundDefun (truncate arity) (ExprTreeListNode [])
+      Defun sym (truncate arity) `liftM` expression
+    otherwise -> term >>= expressionTail
                           
 term :: State ParseState ExprTree
-term = do
-  exprt <- factor
-  termTail exprt
+term = factor >>= termTail
 
 expressionTail :: ExprTree -> State ParseState ExprTree
 expressionTail exprt = do
-  (tokens, st) <- get
+  (tokens, _) <- get
   case tokens of
     (TokenOperator Plus:ts) -> do
       pcSetTokList ts
@@ -223,56 +228,46 @@ expressionTail exprt = do
 
 factor :: State ParseState ExprTree
 factor = do
-  (tokens, st) <- get
-  case tokens of
-     ((TokenNumber num):ts) -> do
-       pcSetTokList ts
-       return $ ConstantNumber num
-     ((TokenSymbol c):ts) ->
-       case retrBinding c globalTable of
-         BoundValue _ -> do { pcSetTokList ts ; return $ Symbol c }
+  (token:ts, st) <- get
+  pcSetTokList ts
+  case token of
+     TokenNumber num -> return $ ConstantNumber num
+     TokenSymbol c ->
+       case retrBinding c st of
+         BoundValue _ -> return $ Symbol c
          BoundBuiltin arity _ -> do
-           pcSetTokList ts
            exprl <- replicateM arity expression
            return $ Funcall arity c exprl
-  --     BoundDefun arity _   -> 
-     ((TokenLeftParen):ts) -> do
-       pcSetTokList ts
+         BoundDefun arity _   -> do
+           exprl <- replicateM arity expression
+           return $ Funcall arity c exprl           
+     TokenLeftParen -> do
        exprt <- expression
-       (tokens', _) <- get
-       if head tokens' == TokenRightParen
-          then do { pcSetTokList (tail tokens') ; return $ exprt }
+       (token':ts', _) <- get
+       if token' == TokenRightParen
+          then do { pcSetTokList ts' ; return $ exprt }
           else error "saw something other than close paren"
-     ((TokenLeftBrace):ts) -> do
-       pcSetTokList ts
+     TokenLeftBrace -> do
+       pcSetSymTab $ derivedTable [] st
        exprl <- factorExpressionList
+       pcSetSymTab st
        return $ ExprTreeListNode exprl
-     (TokenIf:ts) -> do
-       pcSetTokList ts
-       liftM3 TernaryIf expression expression expression
-     (TokenRepeat:ts) -> do
-       pcSetTokList ts
-       liftM2 Repeat expression expression
-     ((TokenOperator Plus):ts)  -> do { pcSetTokList ts; expression }
-     ((TokenOperator Minus):ts) -> do        -- (-1 * result')
-       pcSetTokList ts
-       liftM (UnaryOp (UnaryFunc "-" negate)) expression
+     TokenIf -> liftM3 TernaryIf expression expression expression
+     TokenRepeat -> liftM2 Repeat expression expression
+     TokenOperator Plus -> expression
+     TokenOperator Minus -> UnaryOp (UnaryFunc "-" negate) `liftM` expression
 
--- FIX: handle symbol table stuff. note: this is different from the
--- top-level expressionList function only because we need to handle
--- the close-right-brace and the missing-right-brace cases. possibly
--- we could inline or where-clause this.
 factorExpressionList :: State ParseState ExprList
 factorExpressionList = do
-  (tokens, st) <- get
+  (tokens, _) <- get
   case tokens of
     [] -> error "unexpected end of token stream inside exprlist"
-    ((TokenRightBrace):ts) -> do { pcSetTokList ts ; return [] }
+    ((TokenRightBrace):ts) -> pcSetTokList ts >> return []
     otherwise -> liftM2 (:) expression factorExpressionList
 
 termTail :: ExprTree -> State ParseState ExprTree
 termTail exprt = do
-  (tokens, st) <- get
+  (tokens, _) <- get
   case tokens of
     (TokenOperator Times:ts) -> do
       pcSetTokList ts
@@ -298,17 +293,33 @@ evaluate (Assignment sym exprt) = do
 evaluate (Symbol sym) = do
   binding <- getBinding sym
   case binding of
-      (BoundValue num) -> return num
-      otherwise -> error "shouldn't see other bindings here in Symbol eval def"
+    (BoundValue num) -> return num
+    otherwise -> error "shouldn't see other bindings here in Symbol eval def"
 
-evaluate (Funcall arity sym exprl) = do
+evaluate (Defun sym arity exprt) = do
+  -- we need to put a binding in place so we can subsequently call
+  -- this function from future evaluate, um, calls. (we only put in
+  -- placeholders during parse, and even those wouldn't have been
+  -- saved for non-global contexts.)
+  updateBinding sym $ BoundDefun arity exprt
+  return $ fromIntegral arity
+
+evaluate (Funcall arity sym args) = do
   binding <- getBinding sym
   case (binding) of
-    (BoundBuiltin arityInTable f) ->
-      if (arityInTable /= arity)
-        then error $ "mismatch in arg count for " ++ [sym]
-        else f exprl
-
+    (BoundBuiltin arityInTable f) -> f args
+    (BoundDefun arityInTable exprt) -> do
+      -- we want to evaluate the each item in the args list and bind
+      -- the results to a..i in a new, local, symbol table. then we
+      -- can call the exprt from the defun
+      -- uh, oh. dynamic scope? feh. <-- FIX:
+      -- ZIP
+      st <- getST
+      putST $ derivedTable [] st
+      result <- evaluate exprt
+      putST st
+      return result
+      
 evaluate (UnaryOp (UnaryFunc _ f) exprt) = liftM f (evaluate exprt)
 evaluate (BinaryOp (BinaryFunc _ f) left right) =
   liftM2 f (evaluate left) (evaluate right)  
@@ -356,10 +367,12 @@ pgmString str = let tsl = execState (
 
 data Binding = BoundValue   Double                      |
                BoundBuiltin Int ([ExprTree] -> EvalContext)  | 
-               BoundDefun   Int (ExprTree -> [ExprTree] -> Double)
+               BoundDefun   Int ExprTree
 
 instance Show Binding where
   show (BoundValue num) = "`" ++ (show num)
+  show (BoundBuiltin arity _) = "#" ++ (show arity)
+  show (BoundDefun arity _) = "&" ++ (show arity)
 
 type SymbolTableMapList = [(Char, Binding)]
 type SymbolTableMap = (Map.Map Char Binding)
