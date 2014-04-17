@@ -166,98 +166,123 @@ data ExprTree = Assignment Char ExprTree              |
 
 
 parse :: [Token] -> ExprList
-parse tokens = let (emptyTokenSequence, exprs) = expressionList tokens []
-               in exprs
+parse tokens = evalState expressionList (tokens, globalTable)
 
 -- 
 
+type ParseState = ([Token], SymbolTable)
 
-expressionList :: [Token] -> ExprList -> ([Token], ExprList)
-expressionList [] exprs = ([], exprs)
-expressionList tokens exprs =
-  let (tokens', tree) = expression tokens
-  in                    expressionList tokens' (exprs ++ [tree])
+-- pcGetTokList :: State ParseState ExprList
+-- pcGetTokList = gets $ fst
+-- pcGetSymTab = gets $ snd
+pcSetTokList tokens = modify $ \s -> (tokens, snd s)
+pcSetSymTab  st     = modify $ \s -> (fst s , st)
 
-expression :: [Token] -> ([Token], ExprTree)
-expression ((TokenSymbol sym):TokenEquals:ts) =                   -- assignment
-  let (tokens, exprt) = expression ts
-  in                    (tokens, Assignment sym exprt)
-expression (TokenDefun:(TokenSymbol sym):(TokenNumber num):ts) =  -- defun
-  let (tokens, exprt) = expression ts
-  in                    (tokens, Defun sym (truncate num) exprt)
-expression tokens =
-  let (tokens', exprt') = term tokens 
-  in                      expressionTail tokens' exprt'
-term :: [Token] -> ([Token], ExprTree)
-term tokens =
-  let (tokens', exprt) = factor tokens
-  in                     termTail tokens' exprt
 
-expressionTail :: [Token] -> ExprTree -> ([Token], ExprTree)
-expressionTail [] exprt = ([], exprt)
-expressionTail (t:ts) exprt
-  | t == (TokenOperator Plus) =
-    let (tokens', exprt') = term ts
-    in expressionTail tokens' (BinaryOp (BinaryFunc "+" (+)) exprt exprt')
-  | t == (TokenOperator Minus) =
-    let (tokens', exprt') = term ts
-    in expressionTail tokens' (BinaryOp (BinaryFunc "-" (-)) exprt exprt')
-  | otherwise = (t:ts, exprt)
+expressionList :: State ParseState ExprList
+expressionList = do
+  (tokens, st) <- get
+  case tokens of
+    [] -> return []
+    otherwise -> liftM2 (:) expression expressionList
 
-factor :: [Token] -> ([Token], ExprTree)
-factor ((TokenNumber num):ts) = (ts, ConstantNumber num)
-factor ((TokenSymbol c):ts) = 
-  case retrBinding c globalTable of
-    BoundValue _ -> (ts, Symbol c)
-    BoundBuiltin arity _ -> parseFurther arity arity c ts []
-    BoundDefun arity _   -> parseFurther arity arity c ts []
-  where parseFurther 0 arity c tokens exprl = (tokens, Funcall arity c exprl)
-        parseFurther n arity c tokens exprl =
-          let (tokens', exprt) = expression tokens 
-          in parseFurther (n-1) arity c tokens' (exprl ++ [exprt])
-        
-factor ((TokenLeftParen):ts) = 
-  let (tokens', exprt) = expression ts
-  in if head tokens' == TokenRightParen
-     then (tail tokens', exprt)
-     else error "saw something other than close paren"
-factor ((TokenLeftBrace):ts) = 
-  let (tokens', exprl) = factorExpressionList ts []
-  in                     (tokens', ExprTreeListNode exprl)
-factor (TokenIf:ts) =
-  let (ts', exprt) = expression ts
-  in let (ts'', exprt') = expression ts'
-     in let (ts''', exprt'') = expression ts''
-        in (ts''', TernaryIf exprt exprt' exprt'')
-factor (TokenRepeat:ts) =
-  let (ts', exprt) = expression ts
-  in let (ts'', exprt') = expression ts'
-     in (ts'', Repeat exprt exprt')
+expression :: State ParseState ExprTree
+expression = do
+  (tokens, st) <- get
+  case tokens of
+    ((TokenSymbol sym):TokenEquals:ts) -> do                   -- assignment
+      pcSetTokList ts
+      exprt <- expression
+      return $ Assignment sym exprt
+    (TokenDefun:(TokenSymbol sym):(TokenNumber num):ts) -> do -- defun
+      pcSetTokList ts
+      exprt <- expression
+      return $ Defun sym (truncate num) exprt
+    otherwise -> do
+      exprt <- term
+      expressionTail exprt
+                          
+term :: State ParseState ExprTree
+term = do
+  exprt <- factor
+  termTail exprt
 
-factor ((TokenOperator Plus):ts) = expression ts
-factor ((TokenOperator Minus):ts) =        -- (-1 * result')
-  let (tokens', exprt) = factor ts
-  in (tokens', UnaryOp (UnaryFunc "-" negate) exprt)
+expressionTail :: ExprTree -> State ParseState ExprTree
+expressionTail exprt = do
+  (tokens, st) <- get
+  case tokens of
+    (TokenOperator Plus:ts) -> do
+      pcSetTokList ts
+      exprt' <- term
+      expressionTail $ BinaryOp (BinaryFunc "+" (+)) exprt exprt'
+    (TokenOperator Minus:ts) -> do
+      pcSetTokList ts
+      exprt' <- term
+      expressionTail $ BinaryOp (BinaryFunc "-" (-)) exprt exprt'
+    otherwise -> return exprt
 
-factorExpressionList :: [Token] -> ExprList -> ([Token], ExprList)
-factorExpressionList [] _ = 
-  error "unexpected end of token stream inside exprlist"
-factorExpressionList ((TokenRightBrace):ts) exprl = (ts, exprl)
-factorExpressionList tokens exprl =
-  let (tokens', exprl') = expression tokens
-  in                      factorExpressionList tokens' (exprl ++ [exprl'])
+factor :: State ParseState ExprTree
+factor = do
+  (tokens, st) <- get
+  case tokens of
+     ((TokenNumber num):ts) -> do
+       pcSetTokList ts
+       return $ ConstantNumber num
+     ((TokenSymbol c):ts) ->
+       case retrBinding c globalTable of
+         BoundValue _ -> do { pcSetTokList ts ; return $ Symbol c }
+         BoundBuiltin arity _ -> do
+           pcSetTokList ts
+           exprl <- replicateM arity expression
+           return $ Funcall arity c exprl
+  --     BoundDefun arity _   -> 
+     ((TokenLeftParen):ts) -> do
+       pcSetTokList ts
+       exprt <- expression
+       (tokens', _) <- get
+       if head tokens' == TokenRightParen
+          then do { pcSetTokList (tail tokens') ; return $ exprt }
+          else error "saw something other than close paren"
+     ((TokenLeftBrace):ts) -> do
+       pcSetTokList ts
+       exprl <- factorExpressionList
+       return $ ExprTreeListNode exprl
+     (TokenIf:ts) -> do
+       pcSetTokList ts
+       liftM3 TernaryIf expression expression expression
+     (TokenRepeat:ts) -> do
+       pcSetTokList ts
+       liftM2 Repeat expression expression
+     ((TokenOperator Plus):ts)  -> do { pcSetTokList ts; expression }
+     ((TokenOperator Minus):ts) -> do        -- (-1 * result')
+       pcSetTokList ts
+       liftM (UnaryOp (UnaryFunc "-" negate)) expression
 
-termTail :: [Token] -> ExprTree -> ([Token], ExprTree)
-termTail (t:ts) exprt
-  | t == (TokenOperator Times) =
-    let (tokens', exprt') = factor ts
-    in termTail tokens' (BinaryOp (BinaryFunc "*" (*)) exprt exprt')
-  | t == (TokenOperator Div) =
-    let (tokens', exprt') = term ts
-    in termTail tokens' (BinaryOp (BinaryFunc "/" (/)) exprt exprt')
-  | otherwise = (t:ts, exprt)
-termTail [] exprt = ([], exprt)
+-- FIX: handle symbol table stuff. note: this is different from the
+-- top-level expressionList function only because we need to handle
+-- the close-right-brace and the missing-right-brace cases. possibly
+-- we could inline or where-clause this.
+factorExpressionList :: State ParseState ExprList
+factorExpressionList = do
+  (tokens, st) <- get
+  case tokens of
+    [] -> error "unexpected end of token stream inside exprlist"
+    ((TokenRightBrace):ts) -> do { pcSetTokList ts ; return [] }
+    otherwise -> liftM2 (:) expression factorExpressionList
 
+termTail :: ExprTree -> State ParseState ExprTree
+termTail exprt = do
+  (tokens, st) <- get
+  case tokens of
+    (TokenOperator Times:ts) -> do
+      pcSetTokList ts
+      exprt' <- term
+      termTail $ BinaryOp (BinaryFunc "*" (*)) exprt exprt'
+    (TokenOperator Div:ts) -> do
+      pcSetTokList ts
+      exprt' <- term
+      termTail $ (BinaryOp (BinaryFunc "/" (/)) exprt exprt')
+    otherwise -> return exprt
 
 --
 
