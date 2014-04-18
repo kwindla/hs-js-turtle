@@ -115,16 +115,4 @@ retrBinding sym (GlobalTable map) =
     Just binding -> binding
     Nothing      -> BoundValue 0
 
-updateBinding :: Char -> Binding -> EvalContext
-updateBinding sym binding = do
-  st <- getST
-  putST $ case st of
-    (ScopedTable map parent) ->
-      ScopedTable (Map.insert sym binding map) parent
-    (GlobalTable map) ->
-      GlobalTable $ Map.insert sym binding map
-  case binding of
-    (BoundValue num) -> return num
-    otherwise        -> return 0
-
 

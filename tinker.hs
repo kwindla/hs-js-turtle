@@ -25,7 +25,7 @@ globalTable = SymbolTable (Map.fromList
   , ('F', BoundBuiltin 1 (\exprts -> biForward (head exprts)))
   , ('R', BoundBuiltin 1 (\exprts -> biRotate subtract (head exprts)))
   , ('L', BoundBuiltin 1 (\exprts -> biRotate (+) (head exprts)))
-  ]) Nothing
+  ])
 
 type Point = (Double , Double)
 x :: Point -> Double
@@ -177,8 +177,8 @@ pcSetSymTab  st         = modify $ \s -> (fst s , st)
 -- share code. and shouldn't have to have the ugly case statement in
 -- the middle of the logic
 pcUpdateBinding sym binding = do
-  (_, (SymbolTable map parent)) <- get
-  pcSetSymTab $ SymbolTable (Map.insert sym binding map) parent
+  (_, (SymbolTable map)) <- get
+  pcSetSymTab $ SymbolTable (Map.insert sym binding map)
   return 0
 
 expressionList :: State ParseState ExprList
@@ -309,7 +309,7 @@ evaluate (Funcall arity sym args) = do
       argValues <- mapM evaluate args
       let bindings = zip ['a'..'i'] (map BoundValue argValues)
       st <- getST
-      putST $ derivedTable bindings fun_st
+      putST $ funcScopedTable bindings fun_st st
       result <- evaluate exprt
       putST st
       return result
@@ -373,7 +373,8 @@ type SymbolTableMap = (Map.Map Char Binding)
 
 -- FIX: -- use a Maybe so that there's only a single ST contructor
 
-data SymbolTable = SymbolTable SymbolTableMap (Maybe SymbolTable)
+--data SymbolTable = SymbolTable SymbolTableMap (Maybe SymbolTable)
+data SymbolTable = SymbolTable SymbolTableMap
   deriving (Show)
 
 data Turtle = Turtle { _heading :: Double
@@ -398,16 +399,21 @@ getBinding sym = gets $ retrBinding sym . view symTab
 appendOutput lines = modify $ update outLines (++[lines])    
   
 updateBinding sym binding = do
-  (SymbolTable map parent) <- getST
-  putST $ SymbolTable (Map.insert sym binding map) parent
+  (SymbolTable map) <- getST
+  putST $ SymbolTable (Map.insert sym binding map)
   case binding of
     BoundValue num -> return num
     otherwise -> return 0.0
 
+  -- putST $ SymbolTable (Map.insert sym binding map) parent
+  -- case binding of
+  --   BoundValue num -> return num
+  --   otherwise -> return 0.0
+
 
 derivedTable :: SymbolTableMapList -> SymbolTable -> SymbolTable
-derivedTable list parent =
-  SymbolTable (Map.fromList list) (Just parent)
+derivedTable list (SymbolTable parentMap) =
+  SymbolTable $ Map.union (Map.fromList list) parentMap
   
 -- we have a bit of static scope machinery we have to put in place,
 -- here. the rule is that at defun time we save the current
@@ -422,17 +428,28 @@ derivedTable list parent =
 -- functions) AND we don't have local variable re-definition (only
 -- changing of values).
 funcScopedTable :: SymbolTableMapList -> SymbolTable -> SymbolTable -> SymbolTable
-funcScopedTable list scoped dynamic = globalTable
--- HERE
+funcScopedTable list s@(SymbolTable parentMap) dynamicTable =
+  let updatedMap = Map.mapWithKey f parentMap
+  in SymbolTable $ Map.union (Map.fromList list) updatedMap
+     where f k v =
+             case retrBinding k dynamicTable of
+               b@(BoundValue _)     -> b
+               b@(BoundBuiltin _ _) -> b
+               otherwise            -> v
 
 retrBinding :: Char -> SymbolTable -> Binding
-retrBinding sym (SymbolTable map parent) =
+retrBinding sym (SymbolTable map) =
   let maybeBinding = Map.lookup sym map
   in case maybeBinding of
     Just binding -> binding
-    Nothing      -> case parent of
-                         Just st@(SymbolTable _ _) -> retrBinding sym st
-                         Nothing -> BoundValue 0.0
+    Nothing      -> BoundValue 0.0
+  
+  -- let maybeBinding = Map.lookup sym map
+  -- in case maybeBinding of
+  --   Just binding -> binding
+  --   Nothing      -> case parent of
+  --                        Just st@(SymbolTable _ _) -> retrBinding sym st
+  --                        Nothing -> BoundValue 0.0
 
 
 --
