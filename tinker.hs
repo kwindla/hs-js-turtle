@@ -20,12 +20,12 @@ main = interact ( intercalate " " . pgmString )
 
 newTSL = TSL (Turtle (90.0) (100.0,100.0) (0,0,0)) globalTable svgPrelude 
 
-globalTable = GlobalTable $ Map.fromList 
+globalTable = SymbolTable (Map.fromList 
   [ ('P', BoundValue pi)
   , ('F', BoundBuiltin 1 (\exprts -> biForward (head exprts)))
   , ('R', BoundBuiltin 1 (\exprts -> biRotate subtract (head exprts)))
   , ('L', BoundBuiltin 1 (\exprts -> biRotate (+) (head exprts)))
-  ]
+  ]) Nothing
 
 type Point = (Double , Double)
 x :: Point -> Double
@@ -177,12 +177,8 @@ pcSetSymTab  st         = modify $ \s -> (fst s , st)
 -- share code. and shouldn't have to have the ugly case statement in
 -- the middle of the logic
 pcUpdateBinding sym binding = do
-  (_, st) <- get
-  pcSetSymTab $ case st of
-    (ScopedTable map parent) ->
-      ScopedTable (Map.insert sym binding map) parent
-    (GlobalTable map) ->
-      GlobalTable $ Map.insert sym binding map
+  (_, (SymbolTable map parent)) <- get
+  pcSetSymTab $ SymbolTable (Map.insert sym binding map) parent
   return 0
 
 expressionList :: State ParseState ExprList
@@ -310,9 +306,6 @@ evaluate (Funcall arity sym args) = do
     (BoundDefun arityInTable exprt fun_st) -> do
       -- we want to evaluate the each item in the args list and bind
       -- the results to a..i in a new, local, symbol table.
-      --
-      -- uh, oh. dynamic scope?  feh. <-- FIX: we need a symtab slot
-      -- in the binding
       argValues <- mapM evaluate args
       let bindings = zip ['a'..'i'] (map BoundValue argValues)
       st <- getST
@@ -378,9 +371,9 @@ instance Show Binding where
 type SymbolTableMapList = [(Char, Binding)]
 type SymbolTableMap = (Map.Map Char Binding)
 
-FIX: -- use a Maybe so that there's only a single ST contructor
-data SymbolTable = ScopedTable SymbolTableMap SymbolTable |
-                   GlobalTable SymbolTableMap
+-- FIX: -- use a Maybe so that there's only a single ST contructor
+
+data SymbolTable = SymbolTable SymbolTableMap (Maybe SymbolTable)
   deriving (Show)
 
 data Turtle = Turtle { _heading :: Double
@@ -405,33 +398,41 @@ getBinding sym = gets $ retrBinding sym . view symTab
 appendOutput lines = modify $ update outLines (++[lines])    
   
 updateBinding sym binding = do
-  st <- getST
-  putST $ case st of
-    (ScopedTable map parent) ->
-      ScopedTable (Map.insert sym binding map) parent
-    (GlobalTable map) ->
-      GlobalTable $ Map.insert sym binding map
+  (SymbolTable map parent) <- getST
+  putST $ SymbolTable (Map.insert sym binding map) parent
   case binding of
-    (BoundValue num) -> return num
-    otherwise        -> return 0
+    BoundValue num -> return num
+    otherwise -> return 0.0
 
 
 derivedTable :: SymbolTableMapList -> SymbolTable -> SymbolTable
 derivedTable list parent =
+  SymbolTable (Map.fromList list) (Just parent)
   
-  ScopedTable (Map.fromList list) parent
+-- we have a bit of static scope machinery we have to put in place,
+-- here. the rule is that at defun time we save the current
+-- SymbolTable context. that gives us (up the table chain) a full list
+-- of every previously defined variable that we're closing over. but
+-- these variables could have been modified after the defun. to
+-- account for that, we need to set all our variables to their current
+-- values in the symbol table of our caller (the "dynamic" SymbolTable
+-- arg, below). this works because it's impossible for our function
+-- defun to be visible from any scope other than one directly
+-- descending from the calling scope (we don't have first-class
+-- functions) AND we don't have local variable re-definition (only
+-- changing of values).
+funcScopedTable :: SymbolTableMapList -> SymbolTable -> SymbolTable -> SymbolTable
+funcScopedTable list scoped dynamic = globalTable
+-- HERE
 
 retrBinding :: Char -> SymbolTable -> Binding
-retrBinding sym (ScopedTable map parent) =
+retrBinding sym (SymbolTable map parent) =
   let maybeBinding = Map.lookup sym map
   in case maybeBinding of
     Just binding -> binding
-    Nothing      -> retrBinding sym parent
-retrBinding sym (GlobalTable map) =
-  let maybeBinding = Map.lookup sym map
-  in case maybeBinding of
-    Just binding -> binding
-    Nothing      -> BoundValue 0
+    Nothing      -> case parent of
+                         Just st@(SymbolTable _ _) -> retrBinding sym st
+                         Nothing -> BoundValue 0.0
 
 
 --
