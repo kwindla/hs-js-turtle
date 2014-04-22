@@ -20,4 +20,14 @@ jsRunStr str = do
 main = do
   export (toJSStr "jsRunStr") jsRunStr
   writeLog ("ready")
+  withElems ["program", "output"] doProgram
 
+doProgram [programTextArea, output] = do
+    onEvent programTextArea OnChange $ showOutput
+  where
+    showOutput = do
+      -- writeLog ("in show output")
+      mstr <- getValue programTextArea
+      case mstr of
+        Just str -> setProp output "innerHTML" $ (unlines . pgmString) str
+        _        -> return ()    

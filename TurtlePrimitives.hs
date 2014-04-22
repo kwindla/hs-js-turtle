@@ -8,7 +8,7 @@ import Parser
 import Evaluator
 import qualified Data.Map as Map
 import Control.Monad.State
-import Text.Printf
+-- import Text.Printf
 
 globalTable = SymbolTable (Map.fromList 
   [ ('P', BoundValue pi)
@@ -31,7 +31,7 @@ pgmString str =
 
 --
 
-svgPrelude = ["<svg width=\"200\" height=\"200\">"]
+svgPrelude = ["<svg width=\"400\" height=\"400\">"]
 svgPostlude = ["</svg>\n"]
 
 --
@@ -47,8 +47,12 @@ y :: Point -> Double
 y p = snd p
 
 shp :: (String, String) -> Point -> String
-shp n p = printf "%s=\"%.0f\" %s=\"%.0f\"" (fst n) (x p) (snd n) (y p)
-
+-- Text.Printf doesn't work inside Haste ... the number output as 000
+-- shp n p = -- printf "%s=\"%.0f\" %s=\"%.0f\"" (fst n) (x p) (snd n) (y p)
+shp (sx,sy) (px,py) =
+  sx ++ "=\"" ++ (show px) ++ "\" " ++
+     sy ++ "=\"" ++ (show py) ++ "\" "
+  
 vplus :: Point -> Point -> Point
 vplus p0 p1 = ((x p0) + (x p1) , (y p0) + (y p1))
 
