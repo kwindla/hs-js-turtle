@@ -37,6 +37,8 @@ import Control.Monad.State
 parse :: SymbolTable -> [Token] -> ExprList
 parse symtab tokens = evalState expressionList (tokens, symtab)
 
+parseDbg :: String -> String
+parseDbg = show . parse (SymbolTable (Map.fromList [])) . tokenize
 --
   
 type ParseState = ([Token], SymbolTable)
