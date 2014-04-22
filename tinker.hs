@@ -3,7 +3,7 @@ import Data.Char
 import qualified Data.Map as Map
 import Control.Monad.State
 import Text.Printf
-import Data.List
+-- import Data.List
 
 -- Examples:
 --   echo "#36{R10#8{F25L45}}" | runghc tinker.hs | display svg:-
@@ -12,7 +12,7 @@ import Data.List
 -- to debug...  - runString "P{A=4 P=2 P+A}PA"
 --           or - (parse . tokenize) "a=4 P"
 
-main = interact ( intercalate " " . pgmString )
+main = interact ( unlines . pgmString )
 
 
 --

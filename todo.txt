@@ -1,0 +1,6 @@
+
+better error message for runString "F"
+
+we use Char everywhere we talk about symbols. would be more flexible
+to use a typedef or new algebraic type with methods.
+
