@@ -1,6 +1,14 @@
 module Main
        where
 
+import System.Environment
+import Control.Monad
 import TurtlePrimitives
 
-main = interact ( unlines . pgmString )
+main = do
+  pgm <- liftM head getArgs
+  -- print $ (unlines . pgmString) pgm
+  print $ runString pgm
+  
+  
+  -- interact ( unlines . pgmString )

@@ -7,7 +7,7 @@ import Tokenizer
 import Parser
 import Evaluator
 import qualified Data.Map as Map
-import Control.Monad.State
+import Control.Monad.State.Strict
 -- import Text.Printf
 
 globalTable = SymbolTable (Map.fromList 

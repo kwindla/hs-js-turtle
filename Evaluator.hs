@@ -1,10 +1,10 @@
 module Evaluator
        where
 
+import Control.Monad.State.Strict
+import Control.DeepSeq
 import SymbolTable
 import ExprTree
-import Control.Monad.State
-
 
 evaluate :: ExprTree -> EvalContext
 
@@ -62,12 +62,17 @@ evaluate (Repeat exprNumTimes exprt) = do
   -- expressions, here for a block, we want to repeat multiple times
   -- with a stateful symbol table across all repeats, then "pop" that
   -- symbol table and throw it away.
-  results <- case exprt of
+  case exprt of
     (ExprTreeListNode exprl) -> do
       original_st <- getST
-      r <- replicateM (floor numTimes) (liftM last (mapM evaluate exprl))
-      putST original_st
-      return r
-    otherwise ->
-      replicateM (floor numTimes) (evaluate exprt)
-  return $ last results
+      s <- get
+      r <- repeat (floor numTimes) (last `liftM` (mapM evaluate exprl)) 0
+      putST $! original_st
+      return $! r
+    otherwise -> do
+      r <- repeat (floor numTimes) (evaluate exprt) 0
+      return $! r
+    where repeat n f acc | n <= 0    = return acc
+                         | otherwise = do
+                               r' <- f
+                               repeat (n-1) f r'

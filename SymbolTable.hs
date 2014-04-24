@@ -2,7 +2,7 @@ module SymbolTable
        where
 
 import ExprTree
-import Control.Monad.State
+import Control.Monad.State.Strict
 import qualified Data.Map as Map
 
 
@@ -42,7 +42,7 @@ pos      = FRef { view = _pos      , set = \x t -> t { _pos = x } }
 color    = FRef { view = _color    , set = \x t -> t { _color = x } }
 
 getST = (gets $ view symTab) ::State TSL SymbolTable
-putST st = modify $ set symTab st  
+putST st = do { s <- get ; put $! set symTab st s }
 getBinding sym = gets $ retrBinding sym . view symTab
 appendOutput lines = modify $ update outLines (++[lines])    
   

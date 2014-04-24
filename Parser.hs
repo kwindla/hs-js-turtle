@@ -5,7 +5,7 @@ import Tokenizer
 import ExprTree
 import SymbolTable
 import qualified Data.Map as Map
-import Control.Monad.State
+import Control.Monad.State.Strict
 
 
 -- Expression-List  -> Expression Expression-List |
