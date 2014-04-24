@@ -39,9 +39,17 @@ evaluate (Funcall arity sym args) = do
       putST st
       return result
       
-evaluate (UnaryOp (UnaryFunc _ f) exprt) = liftM f (evaluate exprt)
-evaluate (BinaryOp (BinaryFunc _ f) left right) =
-  liftM2 f (evaluate left) (evaluate right)  
+evaluate (UnaryOp (UnaryFunc _ f) exprt) = do -- liftM f (evaluate exprt)
+  v <- evaluate exprt
+  v `seq` return $! f v
+evaluate (BinaryOp (BinaryFunc _ f) left right) = do
+  -- originally was the very satisfying:
+  --   liftM2 f (evaluate left) (evaluate right)  
+  -- rewritten to force strict evaluation
+  l <- evaluate left
+  r <- evaluate right
+  l `seq` r `seq` return $! f l r
+
 evaluate (ConstantNumber num) = return num
 
 evaluate (TernaryIf eCond eIf eThen) = do

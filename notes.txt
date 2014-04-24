@@ -4,6 +4,11 @@ be 11 ...
    ./turtle "a=1 &b0{a=a+1} #10b" +RTS -K1M
    [1.0,0.0,2.0]
 
+also this ...
+
+  Prelude TurtlePrimitives> runString "a=1 #10{#10{a=a+1}}"
+  [1.0,11.0]
+
 --
 
 haste compilation ...
@@ -33,3 +38,12 @@ runString or pgmString ...
 
 --
 
+write a command-line tool to check and make sure that various
+evaluations run in constant space
+
+  - pattern for running a command with parameter for loop size increase
+  - run with various stack sizes from ghc command line
+  - binary search for where stack limit is for 10 iterations
+  - increase iterations making sure stack doesn't blow out
+
+--
