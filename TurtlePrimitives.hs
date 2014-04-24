@@ -32,7 +32,7 @@ pgmString str =
 --
 
 svgPrelude = ["<svg width=\"400\" height=\"400\">"]
-svgPostlude = ["</svg>\n"]
+svgPostlude = ["</svg>"]
 
 --
 

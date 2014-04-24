@@ -5,10 +5,12 @@ import System.Environment
 import Control.Monad
 import TurtlePrimitives
 
+-- #10{R45#5{#90{F1R2}R90}}
+
 main = do
   pgm <- liftM head getArgs
-  -- print $ (unlines . pgmString) pgm
-  print $ runString pgm
+  putStrLn $ (unlines . pgmString) pgm
+  -- print $ runString pgm
   
   
   -- interact ( unlines . pgmString )

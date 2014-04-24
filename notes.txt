@@ -1,34 +1,35 @@
 
-# install shared libs for haskell runtime
+Lexical scope fails for repeat calling a function. output below should
+be 11 ...
+   ./turtle "a=1 &b0{a=a+1} #10b" +RTS -K1M
+   [1.0,0.0,2.0]
 
-  sudo apt-get install ghc-dynamic
+--
 
-# build shared lib. this makes Test.so and Test_stub.h
+haste compilation ...
 
-ghc -dynamic -shared -fPIC -o libTest.so TestSharedLib.hs -lHSrts-ghc7.6.3
+ rm -rf main/ *.o *.hi *.js ; hastec  -v3 --opt-all-unsafe \
+ --opt-google-closure=/home/khkramer/bin/google-closure.jar \
+ turtle-haste.hs
 
-# use ghc to build and link ... for test purposes. also pass -v to
-# this to figure out linker flags, etc. this produces a very smal
-# executable. leaving out the "-dynamic" flag produces a bigger
-# executable
+stack is still not huge (about 5k repeats are possible). might be able
+to improve this.
 
-  ghc -no-hs-main -dynamic TestSharedLib.hs TestFromC.c  -o test
+floor/truncate/etc seem buggy
 
-# okay, linking with gcc ... we use the ghc -v command line (above)
-# to figure out what libraries need to be linked to, then a bit
-# of head-scratching test library reorderings and groupings to
-# get a simplified command line. this produces a binary that
-# is statically linked against the Haskell libraries (but dynamically
-# linked against other system libs). could be tweaked to dynamically
-# link.
+--
 
-  gcc -DDYNAMIC -c TestFromC.c -o TestFromC.o -I/usr/lib/ghc/include
+ghc -o turtle -O2 -fforce-recomp -rtsopts Main.hs
 
-gcc -o test TestFromC.o -L. -L/usr/lib/ghc/base-4.6.0.1 -L/usr/lib/ghc/integer-gmp-0.5.0.0 -L/usr/lib/ghc/ghc-prim-0.3.0.0 -L/usr/lib/ghc -lTest -lHSrts -lHSbase-4.6.0.1 -lHSghc-prim-0.3.0.0 -lHSinteger-gmp-0.5.0.0 -lffi -lm -lrt -ldl -lgmp -Wl,-rpath,'$ORIGIN' -Wl,-rpath,/usr/lib/ghc/integer-gmp-0.5.0.0 
+# this currently runs out of stack space ... it would be nice to
+# improve performance ... maybe go through and make more of the
+# evaluator strict with (return $!) ?
 
+./turtle "a=10 #100000{a=a+1}" +RTS -K1M
+./turtle "a=1 #1000{a=a+1}" +RTS -K900
 
+# also -- let's hack in a command-line flag so that we can either
+runString or pgmString ...
 
-libHSinteger-gmp-0.5.0.0-ghc7.6.3.so
-libHSinteger-gmp-0.5.0.0-ghc7.6.3.so
- 
+--
 

@@ -1,10 +1,9 @@
 module Evaluator
        where
 
-import Control.Monad.State.Strict
-import Control.DeepSeq
 import SymbolTable
 import ExprTree
+import Control.Monad.State.Strict
 
 evaluate :: ExprTree -> EvalContext
 
@@ -66,11 +65,11 @@ evaluate (Repeat exprNumTimes exprt) = do
     (ExprTreeListNode exprl) -> do
       original_st <- getST
       s <- get
-      r <- repeat (floor numTimes) (last `liftM` (mapM evaluate exprl)) 0
+      r <- repeat numTimes (last `liftM` (mapM evaluate exprl)) 0
       putST $! original_st
       return $! r
     otherwise -> do
-      r <- repeat (floor numTimes) (evaluate exprt) 0
+      r <- repeat numTimes (evaluate exprt) 0
       return $! r
     where repeat n f acc | n <= 0    = return acc
                          | otherwise = do
