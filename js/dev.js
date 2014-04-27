@@ -1,15 +1,24 @@
 
+var tp = require ('./TurtlePrimitives')
 var tokenizer = require ('./Tokenizer')
 var parser = require ('./Parser')
 var evaluator = require ('./Evaluator')
 
-console.log (process.argv[2])
 
-tokens = tokenizer.tokenize (process.argv[2])
-console.log (tokens)
+runProgram (process.argv[2])
 
-exprl = parser.parse (tokens)
-console.log (exprl)
 
-results = evaluator.runProgram (exprl)
-console.log (results)
+function runProgram (str) {
+  var tokens,
+      exprl,
+      values
+
+  tokens = tokenizer.tokenize (str)
+  exprl = parser.parse (tokens, tp.InitialSymbolTable ())
+  console.log (exprl); console.log ("----")
+  results = evaluator.evaluate (exprl, tp.InitialSymbolTable ())
+  console.log (results)
+}
+
+
+

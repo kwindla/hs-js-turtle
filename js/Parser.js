@@ -1,5 +1,5 @@
 
-var symtab = require('./SymbolTable')
+var tp = require('./TurtlePrimitives')
 
 exports.parse = parse
 
@@ -22,10 +22,10 @@ var ExprNode = {
   inspect: function () { return (this.type + (this.v ? (' ' + this.v) : '')) }
 }
 
-function parse (tokens) {
+function parse (tokens, symbolTable) {
   var state = Object.create (ParseState,
                              { tokens: {value: tokens},
-                               symTab: {value: symtab.BaseSymbolTable()} })
+                               symTab: {value: symbolTable} })
   return _expressionList.apply (state)
 }
 
@@ -33,28 +33,31 @@ function dbg (s) { console.log(s) }
 
 
 function _expressionList () {
-  dbg ('el')
   if (this.tokens.length == 0) { return [] }
   return [this.expression()].concat (this.expressionList())
 }
 
 function _expression () {
-  var t0 = this.tokens[0]
-  var t1 = this.tokens[1]
+  var t0 = this.tokens[0],
+      t1 = this.tokens[1],
+      t2 = this.tokens[2];
   if (t0 && t1 && t0.is('TokenSymbol') && t1.is('TokenEquals')) {
     this.tokens.shift(); this.tokens.shift()
     return Assignment (t0.v, this.expression())
   } else if (t0 && t0.is('TokenDefun')) {
-    if (t1 && t1.is('TokenNumber')) {
-      this.tokens.shift(); this.tokens.shift()
-      this.symTab.updateBindingForDefun (t0.v, +t1.v)
-      return Defun (t0.v, +t1.v, this.expression())
-    } else {
-      throw ('defun should be followed by a number - ' + this.tokens)
+    if (! (t1 && t1.is('TokenSymbol'))) {
+      throw ("defun token '&' should be followed by a symbol")
     }
+    if (! (t2 && t2.is('TokenNumber'))) {
+      throw ("defun token '&' should be followed by a symbol and a number")
+    }
+    this.tokens.shift(); this.tokens.shift(); this.tokens.shift()
+    this.symTab.updateBindingForDefun (t1.v, +t2.v)
+    return Defun (t1.v, +t2.v, this.expression())
   } else {
     return this.expressionTail (this.term())
   }
+  // fix: should there be something here? an error or explicit return
 }
 
 function _term () {
@@ -63,7 +66,6 @@ function _term () {
 
 function _expressionTail (expr) {
   var t0 = this.tokens[0]
-  dbg ('et: ' + (t0 ? t0.type: ''))
   if (t0 && t0.is('TokenOperator')) {
     if (t0.v == 'Plus') {
       this.tokens.shift()
@@ -85,13 +87,10 @@ function _factor () {
   if (t0.is('TokenNumber')) { return ConstantNumber (t0.v) }
   if (t0.is('TokenSymbol')) {
     binding = this.symTab.retrBinding (t0.v)
-    dbg ('f: ' + binding.inspect())
     if (binding.type == 'BoundValue') {
-      dbg ('doing val')
       return Symbol (t0.v)
     } else if ((binding.type=='BoundBuiltin') ||
                (binding.type=='BoundDefun')) {
-      dbg ('doing builtin/defun')
       for (var i=0; i<binding.arity; i++) { exprl.push (this.expression()) }
       return Funcall (binding.arity, t0.v, exprl)
     } else { throw 'unknown binding type - ' + binding.type }
@@ -118,7 +117,7 @@ function _factor () {
   }
   if (t0.is('TokenOperator') && (t0.v == 'Plus')) { return this.expression() }
   if (t0.is('TokenOperator') && (t0.v == 'Minus')) {
-    return UnaryOp ('-', function(e) { return -e }, this.expression())
+    return UnaryOp ('-', function(v) { return -(v) }, this.expression())
   }
   throw ("incomplete pattern match in factor :) - " + t0.inspect())
 }
@@ -136,7 +135,6 @@ function _factorExpressionList () {
 
 function _termTail (expr) {
   var t0 = this.tokens[0]
-  dbg ('tt: ' + (t0 ? t0.type: ''))
   if (t0 && t0.is('TokenOperator')) {
     if (t0.v == 'Times') {
       this.tokens.shift()
@@ -155,7 +153,6 @@ function _termTail (expr) {
 //
 
 
-
 function ConstantNumber (n) {
   return Object.create (ExprNode, { type: {value: 'ConstantNumber'},
                                     v: {value: n} } )
@@ -166,15 +163,28 @@ function Symbol (c) {
                                     v: {value: c} } )
 }
 
-//      return Funcall (binding.arity, t0.v, exprl)
+function Defun (c, arity, expr) {
+  return Object.create (ExprNode, { type: {value: 'Defun'},
+                                    v: {value: c},
+                                    arity: {value: arity},
+                                    e: {value: expr},
+                                    inspect: { value:
+    function () {
+      return (this.type + ' ' + this.v + ' ' + this.arity +
+              ' { ' + this.e.inspect() + ' }')
+    } } })
+}
 
+// exprl here is our args list - is this name confusing?
 function Funcall (arity, sym, exprl) {
   return Object.create (ExprNode, { type:   {value: 'Funcall'},
-                                    sym:    {value: sym}, 
+                                    v:      {value: sym}, 
                                     exprl:  {value: exprl},
                                     inspect: {value:
     function () {
-      return (this.type + ' ' + this.sym)
+      return (this.type + ' ' + this.v + ' (' +
+              this.exprl.map ( function(e){return e.inspect()} ).join(', ') +
+              ')')
     } } })
 }
 
@@ -205,10 +215,23 @@ function UnaryOp (s, f, expr) {
   return Object.create (ExprNode, { type: {value: 'UnaryOp'},
                                     v: {value: s},
                                     f: {value: f},
-                                    expr: {value: expr},
+                                    e: {value: expr},
                                     inspect: { value:
     function () {
-      return (this.type + ' ' + this.v + ' (' + this.expr.inspect() + ')')
+      return (this.type + ' ' + this.v + ' (' + this.e.inspect() + ')')
+    } } })
+}
+
+function TernaryIf (econd, eif, ethen) {
+  return Object.create (ExprNode, { type:   {value: 'TernaryIf'},
+                                    econd:  {value: econd},
+                                    eif:    {value: eif},
+                                    ethen:  {value: ethen},
+                                    inspect: { value:
+    function () {
+      return (this.type + ' ' + this.econd.inspect() +
+              ' (' + this.eif.inspect() + ')' +
+              ' (' + this.ethen.inspect() + ')' )
     } } })
 }
 
@@ -220,5 +243,16 @@ function ExprTreeListNode (exprl) {
       return (this.type + ' ' + ' { ' +
               this.exprl.map ( function(e){return e.inspect()} ).join(', ') + 
               ' }')
+    } } })
+}
+
+function Repeat (ntimes, expr) {
+  return Object.create (ExprNode, { type:   {value: 'Repeat'},
+                                    ntimes: {value: ntimes},
+                                    e:      {value: expr},
+                                    inspect: { value:
+    function () {
+      return (this.type + ' ' + this.ntimes.inspect() + 
+              ' { ' + this.e.inspect() + ' }')
     } } })
 }
