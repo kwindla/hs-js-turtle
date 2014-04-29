@@ -12,8 +12,6 @@ var SymbolTable = {
   updateBindingForValue: _updateBindingForValue,
   updateBindingForDefun: _updateBindingForDefun,
 
-  F: BoundBuiltin (1, function (e) { biForward (e, this) }),
-
   derivedTable: _derivedTable,
 }
 
@@ -58,7 +56,8 @@ function _updateBindingForDefun (sym, arity, expr, symtab) {
   this[sym] = BoundDefun (arity, expr, symtab) 
 }
 
-function _derivedTable (symTab) {
+function _derivedTable () {
+  return Object.create (this)
 }
 
 

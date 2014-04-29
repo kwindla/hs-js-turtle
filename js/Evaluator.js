@@ -1,19 +1,23 @@
 
-exports.evaluate = function (exprl, symbolTable) {
-  var state = EvalState(symbolTable)
+exports.evaluate = function (exprl, symbolTable, extraFields) {
+  var state = EvalState()
+  state.symTab = symbolTable
+  Object.keys(extraFields).forEach (
+    function (k) { state[k] = extraFields[k] }
+  )
+
   exprl.forEach (function (expr) { var r = state.evaluate (expr, symbolTable)
                                    state.values.push (r) 
                                  }
                 )
-  return state.values
+
+  return state
 }
 
 
-function EvalState (symTab) {
+function EvalState () {
   return {
-    values: [],        // output values from top-level expression list
-    outLines: [],
-    symTab: symTab,
+    values:   [],        // output values from top-level expression list
     evaluate: _evaluate
   }
 }
@@ -43,12 +47,10 @@ var EvalTable = {
   },
   Funcall: function (e) {
     binding = this.symTab.retrBinding (e.v)
-    dbg ('funcall type test ' + binding.type + ' ' + e.v)
     if (binding.type == 'BoundBuiltin') {
-      // FIX: implement
+      return binding.f.apply (this, [e.exprl])
     }
     if (binding.type == 'BoundDefun') {
-      dbg ('funcall defun')
       var args = []
       // FIX: do symbol table stuff for args (and scope)
       for (var i=0; i<binding.arity; i++) {
@@ -77,11 +79,13 @@ var EvalTable = {
     }
   },
   ExprTreeListNode: function (e) {
-    // FIX: symbol table manip
-    var result
+    var outerSymTab = this.symTab,
+        result
+    this.symTab = this.symTab.derivedTable ()
     for (var i=0; i<e.exprl.length; i++) {
       result = this.evaluate (e.exprl[i])
     }
+    this.symTab = outerSymTab
     return result
   },
   Repeat: function (e) {

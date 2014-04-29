@@ -1,0 +1,6 @@
+
+command line to create the bundle we use for web embedding of the
+turtle stuff ...
+
+  browserify turtle-svg-main.js -o turtle-svg-bundle.js
+

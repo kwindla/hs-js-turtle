@@ -4,7 +4,7 @@ var tp = require('./TurtlePrimitives')
 exports.parse = parse
 
 var ParseState = {
-  tokens: null,
+  tokens: null,         // these will be set by arguments to parse ()
   symTab: null,
   expressionList:       _expressionList,
   expression:           _expression,
@@ -104,9 +104,10 @@ function _factor () {
     return expr
   }
   if (t0.is('TokenLeftBrace')) {
-    // FIX: symtab manip
+    var outerSymTab = this.symTab
+    this.symTab = this.symTab.derivedTable ()
     exprl = this.factorExpressionList()
-    // FIX: symtab manip
+    this.symTab = outerSymTab
     return ExprTreeListNode (exprl);
   }
   if (t0.is('TokenIf')) {
@@ -182,9 +183,9 @@ function Funcall (arity, sym, exprl) {
                                     exprl:  {value: exprl},
                                     inspect: {value:
     function () {
-      return (this.type + ' ' + this.v + ' (' +
+      return (this.type + ' ' + this.v + ' { '  +
               this.exprl.map ( function(e){return e.inspect()} ).join(', ') +
-              ')')
+              ' } ')
     } } })
 }
 
