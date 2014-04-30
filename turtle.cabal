@@ -1,0 +1,37 @@
+Name:                turtle
+Version:             0.1
+Description:         Toy, toy, toy
+License:             BSD3
+License-file:        LICENSE
+Author:              Kwindla Hultman Kramer
+Maintainer:          kwindla@gmail.com
+Build-Type:          Simple
+Cabal-Version:       >=1.16
+
+Library
+  Default-language:  Haskell2010
+  Hs-source-dirs:    hs-core/lib
+  Exposed-modules:   TurtlePrimitives
+  Other-modules:     Tokenizer, Evaluator, Parser, SymbolTable, ExprTree
+  Build-Depends:     base >= 4 && < 5
+                   , monads-tf
+                   , containers
+
+Executable turtle
+  Default-language:  Haskell2010
+  Hs-source-dirs:    hs-core/cmd-line
+  Main-is:           Main.hs
+  Build-Depends:     base >= 4 && < 5
+                   , monads-tf
+                   , containers
+                   , turtle
+
+Test-suite test
+  Type:              exitcode-stdio-1.0
+  Default-language:  Haskell2010
+  Hs-source-dirs:    tests
+  Main-is:           test.hs
+  Build-Depends:     base >= 4 && < 5
+                   , turtle
+                   , tasty >= 0.8
+                   , tasty-hunit >= 0.8

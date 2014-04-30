@@ -1,7 +1,15 @@
 
+cabal setup
+cabal build
+cabal test
+
+dist/build/turtle/turtle "#3{F100R90}"
+
+runghc -ihs-src/lib hs-src/cmd-line/Main.hs
+runghc -ihs-src/lib tests/test
 
 
---
+----
 
 
 Lexical scope fails for repeat calling a function. output below should
