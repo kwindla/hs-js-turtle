@@ -1,19 +1,18 @@
 
+exports.InitialSymbolTable = InitialSymbolTable
+exports.Turtle = Turtle
+
 
 var st = require ('./SymbolTable')
 
 
-exports.InitialSymbolTable = InitialSymbolTable
-exports.Turtle = Turtle
-
-// for functions defined here, "this" will be the current EvalState. e
-// is the passed-in exprl of args to the function
-
 var TurtleGlobals = {
+  // for functions defined here, "this" will be the current
+  // EvalState. e is the passed-in exprl of args to the function
   P: st.BoundValue (Math.PI),
-  F: st.BoundBuiltin (1, function (e) { return biForward (e, this) }),
-  R: st.BoundBuiltin (1, function (e) { return biRotateRight (e, this) }),
-  L: st.BoundBuiltin (1, function (e) { return biRotateLeft (e, this) })
+  F: st.BoundBuiltin (1, function (e) { return _Forward (e, this) }),
+  R: st.BoundBuiltin (1, function (e) { return _RotateRight (e, this) }),
+  L: st.BoundBuiltin (1, function (e) { return _RotateLeft (e, this) })
 }
 
 
@@ -26,7 +25,7 @@ function InitialSymbolTable () {
 }
 
 
-function biForward (exprl, evalState) {
+function _Forward (exprl, evalState) {
   var howFar, p0, p1
   howFar = evalState.evaluate (exprl[0])
   p0 = evalState.turtle.pos.copy ()
@@ -39,13 +38,13 @@ function biForward (exprl, evalState) {
   return howFar
 }
 
-function biRotateRight (exprl, evalState) {
+function _RotateRight (exprl, evalState) {
   var howMuch = evalState.evaluate (exprl[0])
   evalState.turtle.heading.rotate (howMuch)
   return howMuch
 }
 
-function biRotateLeft (exprl, evalState) {
+function _RotateLeft (exprl, evalState) {
   var howMuch = evalState.evaluate (exprl[0])
   evalState.turtle.heading.rotate (-howMuch)
   return howMuch
@@ -53,20 +52,21 @@ function biRotateLeft (exprl, evalState) {
 
 
 function Turtle (heading, pos, color) {
-  var t
-  t = Object.create ( { _heading: 0.0,
-                        pos:     Point (200, 200),
-                        color:   Color (0, 0, 0),
-                        heading: {
-                          set: function(degrees) { t._heading=degrees },
-                          rotate: function(degrees) { t._heading+=degrees },
-                          degrees: function() {return t._heading},
-                          directionVect: function () {
-                            var theta = 2 * Math.PI * t._heading / 360
-                            return Point (Math.sin(theta), Math.cos(theta))
-                          }
-                        }
-                      } );
+  var t = Object.create (
+    { _heading: 0.0,
+      pos:       Point (200, 200),
+      color:     Color (0, 0, 0),
+      penIsDown: true,
+      heading: {
+        set: function(degrees) { t._heading=degrees },
+        rotate: function(degrees) { t._heading+=degrees },
+        degrees: function() {return t._heading},
+        directionVect: function () {
+          var theta = 2 * Math.PI * t._heading / 360
+          return Point (Math.sin(theta), Math.cos(theta))
+        }
+      }
+    });
   if (heading) { t._heading = heading }
   if (pos) { t.pos = pos }
   if (color) { t.color = color }
@@ -80,8 +80,7 @@ function Point (x, y) {
       times: function (d) { this.x *= d; this.y *= d; return this },
       copy: function () { return Point (this.x, this.y) },
       toString: function () { return "(" + this.x + "," + this.y + ")" }
-    }
-  )
+    });
   if (x) { p.x = x }
   if (y) { p.y = y }
   return p

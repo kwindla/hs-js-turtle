@@ -1,11 +1,13 @@
 
-var tp = require('./TurtlePrimitives')
-
 exports.parse = parse
 
+
+var tp = require('./TurtlePrimitives')
+
+
 var ParseState = {
-  tokens: null,         // these will be set by arguments to parse ()
-  symTab: null,
+  tokens: undefined,    // these will be set by arguments to parse ()
+  symTab: undefined,
   expressionList:       _expressionList,
   expression:           _expression,
   term:                 _term,
@@ -15,12 +17,6 @@ var ParseState = {
   termTail:             _termTail
 }
 
-
-var ExprNode = {
-  type: null,
-  is:      function (s) { return s === this.type },
-  inspect: function () { return (this.type + (this.v ? (' ' + this.v) : '')) }
-}
 
 function parse (tokens, symbolTable) {
   var state = Object.create (ParseState,
@@ -154,6 +150,13 @@ function _termTail (expr) {
 //
 
 
+var ExprNode = {
+  type: null,
+  is:      function (s) { return s === this.type },
+  inspect: function () { return (this.type + (this.v ? (' ' + this.v) : '')) }
+}
+
+
 function ConstantNumber (n) {
   return Object.create (ExprNode, { type: {value: 'ConstantNumber'},
                                     v: {value: n} } )
@@ -176,11 +179,10 @@ function Defun (c, arity, expr) {
     } } })
 }
 
-// exprl here is our args list - is this name confusing?
 function Funcall (arity, sym, exprl) {
-  return Object.create (ExprNode, { type:   {value: 'Funcall'},
-                                    v:      {value: sym}, 
-                                    exprl:  {value: exprl},
+  return Object.create (ExprNode, { type: {value: 'Funcall'},
+                                    v: {value: sym}, 
+                                    exprl: {value: exprl}, // args list
                                     inspect: {value:
     function () {
       return (this.type + ' ' + this.v + ' { '  +
@@ -224,10 +226,10 @@ function UnaryOp (s, f, expr) {
 }
 
 function TernaryIf (econd, eif, ethen) {
-  return Object.create (ExprNode, { type:   {value: 'TernaryIf'},
-                                    econd:  {value: econd},
-                                    eif:    {value: eif},
-                                    ethen:  {value: ethen},
+  return Object.create (ExprNode, { type:    {value: 'TernaryIf'},
+                                    econd:   {value: econd},
+                                    eif:     {value: eif},
+                                    ethen:   {value: ethen},
                                     inspect: { value:
     function () {
       return (this.type + ' ' + this.econd.inspect() +
@@ -248,10 +250,10 @@ function ExprTreeListNode (exprl) {
 }
 
 function Repeat (ntimes, expr) {
-  return Object.create (ExprNode, { type:   {value: 'Repeat'},
+  return Object.create (ExprNode, { type: {value: 'Repeat'},
                                     ntimes: {value: ntimes},
-                                    e:      {value: expr},
-                                    inspect: { value:
+                                    e: {value: expr},
+                                    inspect: {value:
     function () {
       return (this.type + ' ' + this.ntimes.inspect() + 
               ' { ' + this.e.inspect() + ' }')

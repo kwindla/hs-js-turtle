@@ -1,4 +1,9 @@
 
+
+
+--
+
+
 Lexical scope fails for repeat calling a function. output below should
 be 11 ...
    ./turtle "a=1 &b0{a=a+1} #10b" +RTS -K1M

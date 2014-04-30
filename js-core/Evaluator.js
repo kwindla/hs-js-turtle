@@ -1,4 +1,5 @@
 
+
 exports.evaluate = function (exprl, symbolTable, extraFields) {
   var state = EvalState()
   state.symTab = symbolTable
