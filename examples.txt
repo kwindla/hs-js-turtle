@@ -9,7 +9,7 @@ $10 100 10{FIR90}
 
 
 -- from el.media.mit.edu logo primer
-&s0#4{F50R90}#36R10S
+&s0#4{F50R90}#36{R10s}
 
 &s2{?a>100S{FaRbsa+2b} 
 

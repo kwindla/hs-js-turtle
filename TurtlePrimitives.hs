@@ -19,9 +19,11 @@ globalTable = SymbolTable (Map.fromList
 
 --
 
-runString :: String -> [Double]
+runString :: String -> ([Double], String)
 runString str =
-  evalState (mapM evaluate (((parse globalTable). tokenize) str)) newTSL
+  let (values, tsl) =
+        runState (mapM evaluate (((parse globalTable). tokenize) str)) newTSL
+  in (values, unlines $ (view outLines tsl) ++ svgPostlude)
 
 pgmString :: String -> [String]
 pgmString str =
