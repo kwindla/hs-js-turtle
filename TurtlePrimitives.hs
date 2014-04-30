@@ -8,13 +8,13 @@ import Parser
 import Evaluator
 import qualified Data.Map as Map
 import Control.Monad.State.Strict
--- import Text.Printf
+import Text.Printf
 
 globalTable = SymbolTable (Map.fromList 
   [ ('P', BoundValue pi)
   , ('F', BoundBuiltin 1 (\exprts -> biForward (head exprts)))
-  , ('R', BoundBuiltin 1 (\exprts -> biRotate subtract (head exprts)))
-  , ('L', BoundBuiltin 1 (\exprts -> biRotate (+) (head exprts)))
+  , ('R', BoundBuiltin 1 (\exprts -> biRotate (+) (head exprts)))
+  , ('L', BoundBuiltin 1 (\exprts -> biRotate subtract (head exprts)))
   ])
 
 --
@@ -33,12 +33,14 @@ pgmString str =
 
 --
 
-svgPrelude = ["<svg width=\"400\" height=\"400\">"]
-svgPostlude = ["</svg>"]
+svgPrelude = [ "<svg width=\"400\" height=\"400\">"
+             , "<g transform=\"translate(0,400)\">"
+             , "<g transform=\"scale(1,-1)\">" ]
+svgPostlude = ["</g></g></svg>"]
 
 --
 
-newTSL = TSL (Turtle (90.0) (100.0,100.0) (0,0,0)) globalTable svgPrelude 
+newTSL = TSL (Turtle (0.0) (200.0,200.0) (0,0,0)) globalTable svgPrelude 
 
 --
 
@@ -49,11 +51,12 @@ y :: Point -> Double
 y p = snd p
 
 shp :: (String, String) -> Point -> String
+
+shp n p = printf "%s=\"%.0f\" %s=\"%.0f\"" (fst n) (x p) (snd n) (y p)
 -- Text.Printf doesn't work inside Haste ... the number output as 000
--- shp n p = -- printf "%s=\"%.0f\" %s=\"%.0f\"" (fst n) (x p) (snd n) (y p)
-shp (sx,sy) (px,py) =
-  sx ++ "=\"" ++ (show px) ++ "\" " ++
-     sy ++ "=\"" ++ (show py) ++ "\" "
+-- shp (sx,sy) (px,py) =
+--   sx ++ "=\"" ++ (show px) ++ "\" " ++
+--      sy ++ "=\"" ++ (show py) ++ "\" "
   
 vplus :: Point -> Point -> Point
 vplus p0 p1 = ((x p0) + (x p1) , (y p0) + (y p1))
@@ -65,7 +68,7 @@ vtimes p d = ((x p) * d , (y p) * d)
 directionVectUnit :: Double -> Point
 directionVectUnit h =
   let theta = 2 * pi * h / 360
-      in (cos(theta) , sin(theta))
+      in (sin(theta), cos(theta))
 
 directionVect :: Double -> Double -> Point
 directionVect h dist = (directionVectUnit h) `vtimes` dist
