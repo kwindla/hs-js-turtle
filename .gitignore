@@ -1,6 +1,2 @@
-*.hi
-*.o
 *~
-Main
-*.prof
-turtle
+dist

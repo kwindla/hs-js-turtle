@@ -10,7 +10,7 @@ Cabal-Version:       >=1.16
 
 Library
   Default-language:  Haskell2010
-  Hs-source-dirs:    hs-core/lib
+  Hs-source-dirs:    hs-src/lib
   Exposed-modules:   TurtlePrimitives
   Other-modules:     Tokenizer, Evaluator, Parser, SymbolTable, ExprTree
   Build-Depends:     base >= 4 && < 5
@@ -19,7 +19,7 @@ Library
 
 Executable turtle
   Default-language:  Haskell2010
-  Hs-source-dirs:    hs-core/cmd-line
+  Hs-source-dirs:    hs-src/cmd-line
   Main-is:           Main.hs
   Build-Depends:     base >= 4 && < 5
                    , monads-tf
