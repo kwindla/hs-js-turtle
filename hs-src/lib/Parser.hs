@@ -12,10 +12,11 @@ import Control.Monad.State.Strict
 --                     empty
 -- Expression       -> Symbol = Expression        |
 --                     & Symbol Number Expression |
---                     Term Expression-Tail
+--                     Term Expression-Tail Comparison
 -- Expression-Tail  -> + Term Expression-Tail |
 --                     - Term Expression-Tail |
 --                     empty
+-- Comparison       -> < Expression | > Expression | empty 
 -- Term             -> Factor Term-Tail
 -- Term-Tail        -> * Factor Term-Tail |
 --                     / Factor Term-Tail |
@@ -31,8 +32,6 @@ import Control.Monad.State.Strict
 --                           Expression Factor-Expression-List
 --   
 
-
---
 
 parse :: SymbolTable -> [Token] -> ExprList
 parse symtab tokens = evalState expressionList (tokens, symtab)
@@ -77,7 +76,7 @@ expression = do
       pcSetTokList ts
       pcUpdateBinding sym $ BoundDefun (truncate arity) (ExprTreeListNode []) (SymbolTable (Map.fromList []))
       Defun sym (truncate arity) `liftM` expression
-    otherwise -> term >>= expressionTail
+    otherwise -> term >>= expressionTail >>= comparison
                           
 term :: State ParseState ExprTree
 term = factor >>= termTail
@@ -95,6 +94,23 @@ expressionTail exprt = do
       exprt' <- term
       expressionTail $ BinaryOp (BinaryFunc "-" (-)) exprt exprt'
     otherwise -> return exprt
+
+comparison :: ExprTree -> State ParseState ExprTree
+comparison exprt = do
+  (tokens, _) <- get
+  case tokens of
+    (TokenOperator GreaterThan:ts) -> do
+      pcSetTokList ts
+      exprt' <- expression
+      return $ BinaryOp (BinaryFunc ">" gtFunc) exprt exprt'
+    (TokenOperator LessThan:ts) -> do
+      pcSetTokList ts
+      exprt' <- expression
+      return $ BinaryOp (BinaryFunc "<" ltFunc) exprt exprt'
+    otherwise -> return exprt
+  where gtFunc l r = if (l > r) then 1.0 else 0.0
+        ltFunc l r = if (l < r) then 1.0 else 0.0
+
 
 factor :: State ParseState ExprTree
 factor = do

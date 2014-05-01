@@ -3,7 +3,7 @@ module Tokenizer
 
 import Data.Char
 
-data Operator = Plus | Minus | Times | Div 
+data Operator = Plus | Minus | Times | Div | GreaterThan | LessThan 
   deriving (Show, Eq)
 
 data Token = TokenEquals            |
@@ -29,10 +29,12 @@ tokenize (c : cs)
   | c == ')'          = TokenRightParen : tokenize cs
   | c == '{'          = TokenLeftBrace  : tokenize cs
   | c == '}'          = TokenRightBrace : tokenize cs
-  | c == '+'          = TokenOperator Plus    : tokenize cs
-  | c == '-'          = TokenOperator Minus   : tokenize cs
-  | c == '*'          = TokenOperator Times   : tokenize cs
-  | c == '/'          = TokenOperator Div     : tokenize cs
+  | c == '+'          = TokenOperator Plus  : tokenize cs
+  | c == '-'          = TokenOperator Minus : tokenize cs
+  | c == '*'          = TokenOperator Times : tokenize cs
+  | c == '/'          = TokenOperator Div   : tokenize cs
+  | c == '>'          = TokenOperator GreaterThan : tokenize cs
+  | c == '<'          = TokenOperator LessThan    : tokenize cs
   | c == '&'          = TokenDefun            : tokenize cs
   | c == '?'          = TokenIf               : tokenize cs
   | c == '#'          = TokenRepeat           : tokenize cs
