@@ -4,10 +4,14 @@ module SymbolTable
 import ExprTree
 import Control.Monad.State.Strict
 import qualified Data.Map as Map
+import Control.Arrow
 
+-- FIX: this file should not be called SymbolTable - or it should be
+-- split into multiple files. Can't the eval context stuff be in the
+-- Evaluator module? 
 
--- smells like this should not be here ... bindings shouldn't return
--- EvalContext?
+-- FIX: smells like this should not be here ... bindings shouldn't
+-- return EvalContext?
 type EvalContext = State TSL Double
 
 data Binding = BoundValue   Double                           |
@@ -22,7 +26,7 @@ instance Show Binding where
 type SymbolTableMapList = [(Char, Binding)]
 type SymbolTableMap = (Map.Map Char Binding)
 
-data SymbolTable = SymbolTable SymbolTableMap
+data SymbolTable = SymbolTable SymbolTableMap (Maybe SymbolTable)
   deriving (Show)
 
 data Turtle = Turtle { _heading :: Double
@@ -40,67 +44,98 @@ outLines = FRef { view = _outLines , set = \x t -> t { _outLines = x } }
 heading  = FRef { view = _heading  , set = \x t -> t { _heading = x } }
 pos      = FRef { view = _pos      , set = \x t -> t { _pos = x } }
 color    = FRef { view = _color    , set = \x t -> t { _color = x } }
+    
+
+appendOutput lines = modify $ update outLines (++[lines])    
+
 
 getST = (gets $ view symTab) ::State TSL SymbolTable
 putST st = do { s <- get ; put $! set symTab st s }
 getBinding sym = gets $ retrBinding sym . view symTab
-appendOutput lines = modify $ update outLines (++[lines])    
-  
 updateBinding sym binding = do
-  (SymbolTable map) <- getST
-  putST $ SymbolTable (Map.insert sym binding map)
+  st <- getST
+  putST $ setBinding st sym binding 
   case binding of
     BoundValue num -> return num
     otherwise -> return 0.0
 
-  -- putST $ SymbolTable (Map.insert sym binding map) parent
-  -- case binding of
-  --   BoundValue num -> return num
-  --   otherwise -> return 0.0
-
-
 derivedTable :: SymbolTableMapList -> SymbolTable -> SymbolTable
-derivedTable list (SymbolTable parentMap) =
-  SymbolTable $ Map.union (Map.fromList list) parentMap
+derivedTable list parent =
+  SymbolTable (Map.fromList list) (Just parent)
   
--- we have a bit of static scope machinery we have to put in place,
--- here. the rule is that at defun time we save the current
--- SymbolTable context. that gives us (up the table chain) a full list
--- of every previously defined variable that we're closing over. but
--- these variables could have been modified after the defun. to
--- account for that, we need to set all our variables to their current
--- values in the symbol table of our caller (the "dynamic" SymbolTable
--- arg, below). this works because it's impossible for our function
--- defun to be visible from any scope other than one directly
--- descending from the calling scope (we don't have first-class
--- functions) AND we don't have local variable re-definition (only
--- changing of values).
-funcScopedTable :: SymbolTableMapList -> SymbolTable -> SymbolTable -> SymbolTable
-funcScopedTable list s@(SymbolTable parentMap) dynamicTable =
-  let updatedMap = Map.mapWithKey f parentMap
-  in SymbolTable $ Map.union (Map.fromList list) updatedMap
-     where f k v =
-             case retrBinding k dynamicTable of
-               b@(BoundValue _)     -> b
-               b@(BoundBuiltin _ _) -> b
-               otherwise            -> v
+-- funcScopedTable makes a lexically scoped symbol table, with args
+-- and "write barrier" definitions installed in the last frame, ready
+-- to be used within a function execution context.
+--
+-- the symbol table from the calling scope is the new st's parent. on
+-- return from the function, the evaluator needs only to "pop" this
+-- new st frame to get rid of both args and locals. the challenge here
+-- is handling variables that were defined in the enclosing lexical
+-- scope of the function's defun. we want to treat those as closed
+-- over. because we don't have first class functions, we can use a
+-- very simple model: for closed over bindings we can just use the
+-- symbol table from the calling scope. on the other hand, we want to
+-- treat all variables not used prior to the defun as local to the
+-- function's lexical scope. the write barrier bindings hide any
+-- bindings from the caller's scope that were first defined after the
+-- function defun. in other words, any values in the symbol table from
+-- the calling scope that are *not* in the symbol table from the defun
+-- scope should be hidden by new (BoundValue 0.0)
+-- 
+-- so ...  (SymbolTable <locals + write barriers> callingScopeSymbolTable)
+--
+-- examples
+--
+-- &f0{q=100} q=23 f q      -- here, when we call f we will need to hide
+--                             the q=23 binding so that the final q
+--                             evaluates to 23
+
+-- q=10 &f0{q=100} q=23 f q -- here, when we call f we will need to
+--                             use the binding for q from the outer
+--                             scope, which is the same as the calling
+--                             scope because we don't have first class
+--                             functions. we expect the final q to
+--                             evaluate to 100
+--
+funcScopedTable :: SymbolTableMapList -> SymbolTable -> SymbolTable -> 
+                   SymbolTable
+funcScopedTable locals defunScopeST callScopeST =
+  let callerBindings  = allBindings callScopeST
+      closureBindings = allBindings defunScopeST
+      writeBarrierBindings =
+        ( Map.fromList .
+          map (\k -> (k, BoundValue 0.0)) .
+          filter (\k -> k `Map.notMember` closureBindings) ) $
+            Map.keys callerBindings
+  in SymbolTable (Map.union (Map.fromList locals) writeBarrierBindings)
+                   (Just callScopeST)
+  where allBindings (SymbolTable map Nothing) = map
+        allBindings (SymbolTable map (Just p)) = (Map.union map (allBindings p))
+
 
 retrBinding :: Char -> SymbolTable -> Binding
-retrBinding sym (SymbolTable map) =
-  let maybeBinding = Map.lookup sym map
-  in case maybeBinding of
+retrBinding sym (SymbolTable map parent) =
+  case Map.lookup sym map of
     Just binding -> binding
-    Nothing      -> BoundValue 0.0
-  
-  -- let maybeBinding = Map.lookup sym map
-  -- in case maybeBinding of
-  --   Just binding -> binding
-  --   Nothing      -> case parent of
-  --                        Just st@(SymbolTable _ _) -> retrBinding sym st
-  --                        Nothing -> BoundValue 0.0
+    Nothing -> case parent of Just symTab -> retrBinding sym symTab
+                              Nothing -> BoundValue 0.0
 
-
---
+setBinding :: SymbolTable -> Char -> Binding -> SymbolTable
+setBinding symTab sym binding =
+  case lookUpward (Just symTab) of
+    (False, _) -> let SymbolTable map mParent = symTab
+                  in update map mParent
+    (True, Just symTab') -> symTab'
+  where lookUpward Nothing = (False, Nothing)
+        lookUpward (Just (SymbolTable map parent)) =
+          case Map.lookup sym map of
+             Just binding -> (True, Just $ update map parent)
+             Nothing -> case lookUpward parent of
+                          (False, Nothing) -> (False, Nothing)
+                          (True, parent') -> (True,
+                                              Just $ SymbolTable map parent')
+        update map mParent = 
+          SymbolTable (Map.insert sym binding map) mParent
 
 
 -- Functional references. See (for example):

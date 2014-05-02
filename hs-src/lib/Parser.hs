@@ -37,7 +37,7 @@ parse :: SymbolTable -> [Token] -> ExprList
 parse symtab tokens = evalState expressionList (tokens, symtab)
 
 parseDbg :: String -> String
-parseDbg = show . parse (SymbolTable (Map.fromList [])) . tokenize
+parseDbg = show . parse (SymbolTable (Map.fromList []) Nothing) . tokenize
 --
   
 type ParseState = ([Token], SymbolTable)
@@ -48,8 +48,8 @@ pcSetSymTab  st         = modify $ \s -> (fst s , st)
 -- share code. and shouldn't have to have the ugly case statement in
 -- the middle of the logic
 pcUpdateBinding sym binding = do
-  (_, (SymbolTable map)) <- get
-  pcSetSymTab $ SymbolTable (Map.insert sym binding map)
+  (_, (SymbolTable map mParent)) <- get
+  pcSetSymTab $ SymbolTable (Map.insert sym binding map) mParent
   return 0
 
 --
@@ -74,7 +74,7 @@ expression = do
       -- arity, so we'll just add a placeholder binding with a
       -- do-nothing lambda in the function slot
       pcSetTokList ts
-      pcUpdateBinding sym $ BoundDefun (truncate arity) (ExprTreeListNode []) (SymbolTable (Map.fromList []))
+      pcUpdateBinding sym $ BoundDefun (truncate arity) (ExprTreeListNode []) (SymbolTable (Map.fromList []) Nothing)
       Defun sym (truncate arity) `liftM` expression
     otherwise -> term >>= expressionTail >>= comparison
                           

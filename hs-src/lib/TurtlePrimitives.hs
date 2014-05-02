@@ -16,7 +16,7 @@ globalTable = SymbolTable (Map.fromList
   , ('F', BoundBuiltin 1 (\exprts -> biForward (head exprts)))
   , ('R', BoundBuiltin 1 (\exprts -> biRotate (+) (head exprts)))
   , ('L', BoundBuiltin 1 (\exprts -> biRotate subtract (head exprts)))
-  ])
+  ]) Nothing
 
 --
 
