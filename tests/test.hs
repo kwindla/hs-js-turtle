@@ -10,8 +10,13 @@ import ExprTree
 
 main = defaultMain t_haskell
 
+-- top level test group --
+
 t_haskell :: TestTree
 t_haskell = testGroup "haskell" [t_tokenizer, t_parser, t_evaluator]
+
+
+-- tokenizer tests --
 
 t_tokenizer :: TestTree
 t_tokenizer = testGroup "tokenizer" 
@@ -66,8 +71,10 @@ t_tokenizer = testGroup "tokenizer"
 t_parser :: TestTree
 t_parser = testGroup "parser" [t_parser_basics, t_parser_precedence]
 
--- test-helper parse
-th_parse = (parse globalTable . tokenize)
+
+-- parser tests --
+
+th_parse = (parse globalTable . tokenize) -- test-helper parse
 
 t_parser_basics :: TestTree
 t_parser_basics = testGroup "basics"
@@ -136,10 +143,12 @@ t_parser_precedence = testGroup "precedence"
           (BinaryOp (read "(+)") (ConstantNumber 1.0) (ConstantNumber 3.0))]
 
   ]
--- add stateful arg cound checking on defuns
+-- FIX: add stateful arg cound checking on defuns
 
--- test-helper evaluate for values
-th_evals = fst . runString
+
+-- evaluator tests --
+
+th_evals = fst . runString  -- test-helper evaluate for values
 
 t_evaluator :: TestTree
 t_evaluator = testGroup "evaluator" [t_eval_vals, t_eval_scope]
