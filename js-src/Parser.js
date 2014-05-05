@@ -12,6 +12,7 @@ var ParseState = {
   expression:           _expression,
   term:                 _term,
   expressionTail:       _expressionTail,
+  comparison:           _comparison,
   factor:               _factor,
   factorExpressionList: _factorExpressionList,
   termTail:             _termTail
@@ -51,7 +52,7 @@ function _expression () {
     this.symTab.updateBindingForDefun (t1.v, +t2.v)
     return Defun (t1.v, +t2.v, this.expression())
   } else {
-    return this.expressionTail (this.term())
+    return this.comparison( this.expressionTail (this.term()))
   }
   // fix: should there be something here? an error or explicit return
 }
@@ -70,6 +71,22 @@ function _expressionTail (expr) {
     } else if (t0.v == 'Minus') {
       this.tokens.shift()
       return this.expressionTail (BinaryOp ('-', function(a,b){return a-b},
+                                            expr, this.term()) )
+    }
+  } 
+  return expr
+}
+
+function _comparison (expr) {
+  var t0 = this.tokens[0]
+  if (t0 && t0.is('TokenOperator')) {
+    if (t0.v == 'GreaterThan') {
+      this.tokens.shift()
+      return this.expressionTail (BinaryOp ('>', function(a,b){return a>b},
+                                            expr, this.term()) )
+    } else if (t0.v == 'LessThan') {
+      this.tokens.shift()
+      return this.expressionTail (BinaryOp ('<', function(a,b){return a<b},
                                             expr, this.term()) )
     }
   } 
@@ -164,7 +181,11 @@ function ConstantNumber (n) {
 
 function Symbol (c) {
   return Object.create (ExprNode, { type: {value: 'Symbol'},
-                                    v: {value: c} } )
+                                    v: {value: c},
+                                    inspect: { value:
+    function () { 
+      return (this.type + (this.v ? (" '" + this.v + "'") : ''))
+    }}})
 }
 
 function Defun (c, arity, expr) {
@@ -174,8 +195,8 @@ function Defun (c, arity, expr) {
                                     e: {value: expr},
                                     inspect: { value:
     function () {
-      return (this.type + ' ' + this.v + ' ' + this.arity +
-              ' { ' + this.e.inspect() + ' }')
+      return (this.type + " '" + this.v + "' " + this.arity +
+              ' (' + this.e.inspect() + ')')
     } } })
 }
 
@@ -185,9 +206,10 @@ function Funcall (arity, sym, exprl) {
                                     exprl: {value: exprl}, // args list
                                     inspect: {value:
     function () {
-      return (this.type + ' ' + this.v + ' { '  +
+      return (this.type + ' ' + arity + " '" + this.v + "' " + 
+                '['  +
               this.exprl.map ( function(e){return e.inspect()} ).join(', ') +
-              ' } ')
+                ']')
     } } })
 }
 
@@ -197,7 +219,7 @@ function Assignment (sym, expr) {
                                     e: {value: expr},
                                     inspect: {value:
     function () {
-      return (this.type + ' ' + this.v + ' (' + this.e.inspect() + ')')
+      return (this.type + " '" + this.v + "' (" + this.e.inspect() + ')')
     } } })
 }
 
@@ -209,8 +231,8 @@ function BinaryOp (s, f, left, right) {
                                     right: {value: right},
                                     inspect: { value:
     function () {
-      return (this.type + ' ' + this.v + ' (' + this.left.inspect() + ')' +
-                                         ' (' + this.right.inspect() + ')' )
+      return (this.type + ' (' + this.v + ') (' + this.left.inspect() + ')' +
+                                           ' (' + this.right.inspect() + ')' )
     } } })
 }
 
@@ -221,7 +243,7 @@ function UnaryOp (s, f, expr) {
                                     e: {value: expr},
                                     inspect: { value:
     function () {
-      return (this.type + ' ' + this.v + ' (' + this.e.inspect() + ')')
+      return (this.type + ' (' + this.v + ') (' + this.e.inspect() + ')')
     } } })
 }
 
@@ -232,9 +254,9 @@ function TernaryIf (econd, eif, ethen) {
                                     ethen:   {value: ethen},
                                     inspect: { value:
     function () {
-      return (this.type + ' ' + this.econd.inspect() +
-              ' (' + this.eif.inspect() + ')' +
-              ' (' + this.ethen.inspect() + ')' )
+      return (this.type + ' (' + this.econd.inspect() + ') ' +
+              '(' + this.eif.inspect() + ') ' +
+              '(' + this.ethen.inspect() + ')' )
     } } })
 }
 
@@ -243,9 +265,9 @@ function ExprTreeListNode (exprl) {
                                     exprl: {value: exprl},
                                     inspect: { value:
     function () {
-      return (this.type + ' ' + ' { ' +
+      return (this.type + ' ' + ' [' +
               this.exprl.map ( function(e){return e.inspect()} ).join(', ') + 
-              ' }')
+              ']')
     } } })
 }
 
@@ -255,7 +277,7 @@ function Repeat (ntimes, expr) {
                                     e: {value: expr},
                                     inspect: {value:
     function () {
-      return (this.type + ' ' + this.ntimes.inspect() + 
-              ' { ' + this.e.inspect() + ' }')
+      return (this.type + ' (' + this.ntimes.inspect() + ') ' +
+              '(' + this.e.inspect() + ')')
     } } })
 }

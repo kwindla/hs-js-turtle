@@ -1,10 +1,13 @@
+{-# LANGUAGE DeriveDataTypeable #-}
+
 module Tokenizer
        where
 
+import Data.Typeable  -- used by our custom Test.Hasty node testrunner
 import Data.Char
 
 data Operator = Plus | Minus | Times | Div | GreaterThan | LessThan 
-  deriving (Show, Eq)
+  deriving (Show, Read, Eq, Typeable)
 
 data Token = TokenEquals            |
              TokenOperator Operator |
@@ -17,7 +20,7 @@ data Token = TokenEquals            |
              TokenDefun             |
              TokenIf                |
              TokenRepeat
-           deriving (Show, Eq)
+           deriving (Show, Read, Eq, Typeable)
 
 tokenize :: String -> [Token]
 tokenize [] = []

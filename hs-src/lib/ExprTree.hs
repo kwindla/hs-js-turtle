@@ -1,5 +1,11 @@
+{-# LANGUAGE DeriveDataTypeable #-}
+
 module ExprTree
        where
+
+import Data.Typeable  -- used by our custom Test.Hasty node testrunner
+import Text.Read
+
 
 type ExprList = [ExprTree]
 data ExprTree = Assignment Char ExprTree              |
@@ -12,7 +18,7 @@ data ExprTree = Assignment Char ExprTree              |
                 Symbol Char                           |
                 Funcall Int Char ExprList             |
                 ExprTreeListNode ExprList
-              deriving (Show, Eq, Read)
+              deriving (Show, Eq, Read, Typeable)
 
 data UnaryFunc = UnaryFunc String (Double -> Double)
 
@@ -45,9 +51,9 @@ instance Read BinaryFunc where
                                      ]
 
 
--- tryParse :: String -> [(String, a)] -> [(String, a)]
 tryParse _ [] = []
 tryParse value ((attempt, result):xs) =
-  if (take (length attempt) value) == attempt
-  then [(result, drop (length attempt) value)]
-  else tryParse value xs
+  let trimmed = dropWhile (\c -> c == ' ') value
+  in if (take (length attempt) trimmed) == attempt
+     then [(result, drop (length attempt) trimmed)]
+     else tryParse value xs

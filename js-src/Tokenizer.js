@@ -18,6 +18,8 @@ var TokenCases = [
   [ '-', TokenOperator, 'Minus' ],
   [ '*', TokenOperator, 'Times' ],
   [ '/', TokenOperator, 'Div' ],
+  [ '>', TokenOperator, 'GreaterThan' ],
+  [ '<', TokenOperator, 'LessThan' ],
   [ '&', TokenDefun ],
   [ '?', TokenIf ],
   [ '#', TokenRepeat ],
@@ -77,7 +79,11 @@ var Token = {
 
 function TokenSymbol (c) {
   return Object.create (Token, { type: {value: 'TokenSymbol'},
-                                 v:    {value: c } })
+                                 v:    {value: c },
+                                 inspect: { value:
+    function () { 
+      return (this.type + (this.v ? (" '" + this.v + "'") : ''))
+    }}})
 }
 
 function TokenNumber (num) {
