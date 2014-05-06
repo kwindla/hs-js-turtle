@@ -8,6 +8,8 @@ var Binding = {
 }
 
 var SymbolTable = {
+  parent: null,
+
   retrBinding:           _retrBinding,
   updateBindingForValue: _updateBindingForValue,
   updateBindingForDefun: _updateBindingForDefun,
@@ -42,22 +44,48 @@ function BaseSymbolTable () {
 }
 
 function _retrBinding (sym) {
-  // dbg ('retr b ' + sym)
-  return this[sym] || BoundValue(0)
+  // we'll use the js inheritance chain to do our lookups. easy-peasy.
+  return this[sym] || BoundValue (0)
 }
 
 function _updateBindingForValue (sym, v) {
-  this[sym] = BoundValue (v)
+  _setBinding (this, sym, BoundValue (v))
   return v
 }
 
 function _updateBindingForDefun (sym, arity, expr, symtab) {
   // dbg ('defun st ' + sym + ' - ' + arity)
-  this[sym] = BoundDefun (arity, expr, symtab) 
+  _setBinding (this, sym, BoundDefun (arity, expr, symtab))
+  return arity   // FIX: is this return value correct (and do we use it)?
+}
+
+var util = require('util')
+
+function _setBinding (symTab, sym, binding) {
+  if (! lookUpward (symTab)) {
+    // dbg ('not found - setting in leaf table')
+    symTab[sym] = binding
+  }
+  return
+
+  function lookUpward (symTab) {
+    // dbg ('lU: ' + util.inspect(symTab))
+    if (!symTab) { return false }
+    if (symTab.hasOwnProperty(sym)) {
+      // dbg ('    found ' + sym + ' ' + util.inspect(symTab[sym]))
+      symTab[sym] = binding
+      return true
+    } else {
+      // dbg ('    recursing')
+      return lookUpward (symTab.parent)
+    }
+  }
 }
 
 function _derivedTable () {
-  return Object.create (this)
+  var newST = Object.create (this)
+  newST.parent = this
+  return newST
 }
 
 

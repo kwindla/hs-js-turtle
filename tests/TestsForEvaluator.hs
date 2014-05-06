@@ -15,7 +15,8 @@ evaluatorSimpleValues =
   , ("if (f)", "?0 100 200", [200])
   , ("if (t from var)", "a=1 ?a 100 200", [1,100])
   , ("if (f from var)", "a=0 ?a 100 200", [0,200])
-  , ("repeat", "a=1 #4{a=a+1}", [1,5])
+  , ("repeat", "a=1 #4a=a+1", [1,5])
+  , ("  ... block", "a=1 #4{a=a+1}", [1,5])
   , ("unary +", "a=1 (+a)", [1,1])
   , ("unary -", "a=1 (-a)", [1,-1])
   , ("funcall", "a=1 &f0a f", [1,0,1])
@@ -27,7 +28,7 @@ evaluatorScope :: [ (String, String, [Double]) ]
 evaluatorScope =
   [ ("basic block", "{a=23} a", [23, 0])
   , ("lexical inherit", "a=0 {a=23} a", [0, 23, 23])
-  , ("defun", "&f0{a} a=23 f", [0, 23, 0])
+  , ("defun and simple call", "&f0{a} a=23 f", [0, 23, 0])
 
   , ("lexical x 2", "a=10 {a=12 {a=23} 17} a", [10, 17, 23])
     
@@ -50,6 +51,11 @@ evaluatorScope =
   , ("  ... closure", "a=100 b=10 &f2{a+b} f23 24 a b",
       [100, 10, 2, 47, 100, 10])
  
+-- FIX: maybe some more checks that local args to functions shadow
+-- rather than "become" closed-over variables. they symbol table stuff
+-- is different enough between the two languages that some additional
+-- function-scoping tests might be sanity-preserving
+
   , ("  ... w", "a=100 b=10 &f2{a+b} a=12 b=13 f23 24 a b",
       [100, 10, 2, 12, 13, 47, 12, 13])
 
