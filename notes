@@ -1,0 +1,23 @@
+
+initially we did jsx transforms in the browser following the examples
+in the react quick-start tutorials.
+
+better, however, to do the page builds separately, perhaps. so that's
+how index.html and friends are configured now.
+
+run this to keep the jsx/ and js/ subdirectories in sync
+
+  jsx -w jsx/ js/
+
+we're also loading a browserify'ed bundle of core turtle-svg code. we
+make that by bundling the core js src from our master branch and
+popping the bundle over here into the gh-pages branch
+
+  browserify js-src/turtle-svg-main.js \
+    -o ~/hs-js-turtle-pages/js/turtle-svg-bundle.js
+
+we have two index.html files. 'index.html' is the "production" page
+(such as it is). 'index-dev.html' should be the same except that it
+uses an un-minified react.js. for now we can keep the two in sync by
+hand.
+
