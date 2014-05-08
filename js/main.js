@@ -44,7 +44,8 @@ ProgramInput = React.createClass ({displayName: 'ProgramInput',
   render: function() {
     var value = this.state.value;
     return (
-        React.DOM.textarea( {value:value, onChange:this.handleChange} )
+        React.DOM.textarea( {id:"program-input",
+                  value:value, onChange:this.handleChange} )
     );
   }
 });
@@ -55,7 +56,8 @@ ProgramInput = React.createClass ({displayName: 'ProgramInput',
 RunItButton = React.createClass ({displayName: 'RunItButton',
   render: function() {
     return (
-      React.DOM.a( {onClick:this.props.onClick}, "Run the Program!")
+      React.DOM.div( {id:"run-button",
+        onClick:this.props.onClick}, "RUN THE PROGRAM >")
     );
   }
 });
@@ -68,7 +70,7 @@ CharCount = React.createClass ({displayName: 'CharCount',
   setCharCount: function (c) { this.setState ({count: c}) },
   render: function() {
     return (
-        React.DOM.p(null, this.state.count)
+        React.DOM.div( {id:"char-count"}, "[",this.state.count,"]")
     );
   }
 });
@@ -94,35 +96,40 @@ ProgramGraphic = React.createClass ({displayName: 'ProgramGraphic',
 // count, run button, and svg graphical display.
 //
 EvalAndDisplayWidget = React.createClass ({displayName: 'EvalAndDisplayWidget',
-  defaultProgramText: "Put your program here ...",
+  defaultProgramText: "#8{R45#4{#90{F(18/10)R2}R90}}",
 
   getInitialState: function() {
     return { turtleSVG: "", pgmText: "" }
   },
-
   setProgramTextAndEval: function (newProgramText) {
     var svgText = window.runProgramSVGBody (newProgramText)
     this.setState ( { pgmText: newProgramText
                     , turtleSVG: svgText } )
+    this.refs['programInput'].getDOMNode().scrollIntoView(true)
   },
   setPTAndEFromProgramInput: function () {
     var pgmText = this.refs['programInput'].state.value
     this.setProgramTextAndEval (pgmText)
-  },
 
+  },
+  componentDidMount: function () {
+    this.setProgramTextAndEval (this.defaultProgramText);
+  },
   render: function() {
     return (
       React.DOM.div( {id:"main-widget-root-container"}, 
-        ProgramInput( {ref:"programInput", 
-                      value:this.state.pgmText || this.defaultProgramText,
+        ProgramInput( {ref:"programInput",
+                      value:this.state.pgmText,
                       charCountHook:function(l) {
                         this.refs['charCount'].setCharCount(l);
                       }.bind(this)}
                       ),
-        CharCount( {ref:"charCount"} ),
-        RunItButton(
-          {onClick:this.setPTAndEFromProgramInput,
-          onTouchStart:this.setPTAndEFromProgramInput}
+        React.DOM.div( {id:"char-run-container"}, 
+          CharCount( {ref:"charCount"} ),
+          RunItButton(
+            {onClick:this.setPTAndEFromProgramInput,
+            onTouchStart:this.setPTAndEFromProgramInput}
+          )
         ),
         ProgramGraphic( {turtleSVG:this.state.turtleSVG} )
       )
@@ -142,7 +149,8 @@ TryExample = React.createClass ({displayName: 'TryExample',
   },
   render: function() {
     return (
-        React.DOM.div( {onClick:this.handleClick,
+        React.DOM.div( {className:"try-example",
+             onClick:this.handleClick,
              onTouchStart:this.handleClick}, 
            this.props.pgmText 
         )
@@ -158,7 +166,7 @@ ExamplesWidget = React.createClass ({displayName: 'ExamplesWidget',
         TryExample( {pgmText:"#4{F100R90}", target:eADWComponent} ),
         TryExample( {pgmText:"#20{F10R5}", target:eADWComponent} ),
         TryExample( {pgmText:"#24{F100R75}", target:eADWComponent} ),
-        TryExample( {pgmText:"#8{R45#6{#90{F1R2}R90}}", target:eADWComponent} ),
+        TryExample( {pgmText:"#8{R45#4{#90{F1R2}R90}}", target:eADWComponent} ),
         TryExample( {pgmText:"#36{R10#8{F25L45}}", target:eADWComponent} )
       )
     );
@@ -174,6 +182,6 @@ eADWComponent = React.renderComponent
 
 exWidgComponent = React.renderComponent 
   ( ExamplesWidget(null ),
-    document.getElementById ('examples') 
+    document.getElementById ('examples-boxes') 
   );
 

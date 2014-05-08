@@ -44,7 +44,8 @@ ProgramInput = React.createClass ({
   render: function() {
     var value = this.state.value;
     return (
-        <textarea value={value} onChange={this.handleChange} />
+        <textarea id="program-input"
+                  value={value} onChange={this.handleChange} />
     );
   }
 });
@@ -55,7 +56,8 @@ ProgramInput = React.createClass ({
 RunItButton = React.createClass ({
   render: function() {
     return (
-      <a onClick={this.props.onClick}>Run the Program!</a>
+      <div id="run-button"
+        onClick={this.props.onClick}>RUN THE PROGRAM &gt;</div>
     );
   }
 });
@@ -68,7 +70,7 @@ CharCount = React.createClass ({
   setCharCount: function (c) { this.setState ({count: c}) },
   render: function() {
     return (
-        <p>{this.state.count}</p>
+        <div id="char-count">[{this.state.count}]</div>
     );
   }
 });
@@ -94,36 +96,41 @@ ProgramGraphic = React.createClass ({
 // count, run button, and svg graphical display.
 //
 EvalAndDisplayWidget = React.createClass ({
-  defaultProgramText: "Put your program here ...",
+  defaultProgramText: "#8{R45#4{#90{F(18/10)R2}R90}}",
 
   getInitialState: function() {
     return { turtleSVG: "", pgmText: "" }
   },
-
   setProgramTextAndEval: function (newProgramText) {
     var svgText = window.runProgramSVGBody (newProgramText)
     this.setState ( { pgmText: newProgramText
                     , turtleSVG: svgText } )
+    this.refs['programInput'].getDOMNode().scrollIntoView(true)
   },
   setPTAndEFromProgramInput: function () {
     var pgmText = this.refs['programInput'].state.value
     this.setProgramTextAndEval (pgmText)
-  },
 
+  },
+  componentDidMount: function () {
+    this.setProgramTextAndEval (this.defaultProgramText);
+  },
   render: function() {
     return (
       <div id="main-widget-root-container">
-        <ProgramInput ref="programInput" 
-                      value={this.state.pgmText || this.defaultProgramText}
+        <ProgramInput ref="programInput"
+                      value={this.state.pgmText}
                       charCountHook={function(l) {
                         this.refs['charCount'].setCharCount(l);
                       }.bind(this)}
                       />
-        <CharCount ref="charCount" />
-        <RunItButton
-          onClick={this.setPTAndEFromProgramInput}
-          onTouchStart={this.setPTAndEFromProgramInput}
-        />
+        <div id="char-run-container">
+          <CharCount ref="charCount" />
+          <RunItButton
+            onClick={this.setPTAndEFromProgramInput}
+            onTouchStart={this.setPTAndEFromProgramInput}
+          />
+        </div>
         <ProgramGraphic turtleSVG={this.state.turtleSVG} />
       </div>
     );
@@ -142,7 +149,8 @@ TryExample = React.createClass ({
   },
   render: function() {
     return (
-        <div onClick={this.handleClick}
+        <div className="try-example"
+             onClick={this.handleClick}
              onTouchStart={this.handleClick}>
           { this.props.pgmText }
         </div>
@@ -158,7 +166,7 @@ ExamplesWidget = React.createClass ({
         <TryExample pgmText="#4{F100R90}" target={eADWComponent} />
         <TryExample pgmText="#20{F10R5}" target={eADWComponent} />
         <TryExample pgmText="#24{F100R75}" target={eADWComponent} />
-        <TryExample pgmText="#8{R45#6{#90{F1R2}R90}}" target={eADWComponent} />
+        <TryExample pgmText="#8{R45#4{#90{F1R2}R90}}" target={eADWComponent} />
         <TryExample pgmText="#36{R10#8{F25L45}}" target={eADWComponent} />
       </div>
     );
@@ -174,6 +182,6 @@ eADWComponent = React.renderComponent
 
 exWidgComponent = React.renderComponent 
   ( <ExamplesWidget />,
-    document.getElementById ('examples') 
+    document.getElementById ('examples-boxes') 
   );
 

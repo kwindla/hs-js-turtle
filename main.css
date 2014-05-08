@@ -1,14 +1,77 @@
+body {
+  font-family: 'Raleway', sans-serif;
+  color: #0f0074;
+}
+
+h1 {
+  font-size: 1.6em;
+}
+
+#top-container {
+  max-width: 800;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+#main-widget {
+  float: left;
+  margin-right: 3em;
+}
 
 #main-widget-root-container {
   width: 320;
-  #border: 1px solid black; padding: 0; margin: 0;
-  #background: red;
+}
+
+#program-input {
+  font-family: 'Inconsolata', 'monospace';
+  font-size: 1.4em;
+}
+
+#char-run-container {
+  font-family: 'Inconsolata', 'monospace';
+  font-weight: bold;
+  padding-top: 4px;
+  padding-bottom: 4px;
+  color: #72707f;
+}
+
+#char-count {
+  display: inline-block;
+  padding: 6;
+  padding-left: 2;
+}
+
+#run-button {
+  display: inline-block;
+  float: right;
+  padding: 6;
+  background-color: #d8d2ff;
+}
+
+#run-button:hover {
+  color: #0f0074;
+  cursor: default;
 }
 
 #program-graphic {
-  border: 3px solid #cccccc;
+  border: 3px solid #d8d2ff;
   width: 314;
   height: 314;
+  margin-bottom: 2em;
+}
+
+#examples {
+  font-family: 'Inconsolata', monospace;
+  display: inline-block;
+  max-width: 190;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+}
+
+.try-example {
+  border: 1px solid #d8d2ff;
+  padding: 8px;
+  margin-top: 10px;
 }
 
 textarea {
@@ -16,5 +79,5 @@ textarea {
   height: 6em;
   resize: none;
   overflow: auto; 
-  border: 3px solid #cccccc; 
+  border: 3px solid #d8d2ff; 
 }
