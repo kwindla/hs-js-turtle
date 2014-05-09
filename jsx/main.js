@@ -3,6 +3,17 @@
  *
  */
 
+
+var examplePgmStrings = [
+    "#10{#3{F120R120}R36}"
+  , "#20{F10R5}"
+  , "B(-110)(-85)#24{F170R75}"
+  , "#8{R45#4{#90{F(18/10)R2}R90}}"
+  , "#36{R10#8{F55L45}}"
+]
+
+var zeroWidthBrk = '&#8203;'
+
 var ProgramInput, RunItButton, CharCount, ProgramGraphic,
     EvalAndDisplayWidget, TryExample, ExamplesWidget,
     eADWComponent, exWidgComponent;
@@ -32,20 +43,25 @@ ProgramInput = React.createClass ({
   componentWillReceiveProps: function(nextProps) {
     this.setState({value: nextProps.value});
     if (this.state.charCountHook) {
-      this.state.charCountHook (nextProps.value.length)
+      this.state.charCountHook (
+        nextProps.value.replace(new RegExp(zeroWidthBrk,'g'), '').length
+      )
     }
   },
   handleChange: function(event) {
     this.setState({value: event.target.value});
     if (this.state.charCountHook) {
-      this.state.charCountHook (event.target.value.length)
+      this.state.charCountHook (
+        event.target.value.replace(new RegExp(zeroWidthBrk,'g'), '').length
+      )
     }
   },
   render: function() {
     var value = this.state.value;
     return (
         <textarea id="program-input"
-                  value={value} onChange={this.handleChange} />
+                  value={value.replace(new RegExp(zeroWidthBrk,'g'), '')}
+                  onChange={this.handleChange} />
     );
   }
 });
@@ -102,7 +118,8 @@ EvalAndDisplayWidget = React.createClass ({
     return { turtleSVG: "", pgmText: "" }
   },
   setProgramTextAndEval: function (newProgramText) {
-    var svgText = window.runProgramSVGBody (newProgramText)
+    var pgmUnmunged = newProgramText.replace(new RegExp(zeroWidthBrk,'g'), '')
+    var svgText = window.runProgramSVGBody (pgmUnmunged)
     this.setState ( { pgmText: newProgramText
                     , turtleSVG: svgText } )
     this.refs['programInput'].getDOMNode().scrollIntoView(true)
@@ -151,8 +168,8 @@ TryExample = React.createClass ({
     return (
         <div className="try-example"
              onClick={this.handleClick}
-             onTouchStart={this.handleClick}>
-          { this.props.pgmText }
+             onTouchStart={this.handleClick}
+             dangerouslySetInnerHTML={{__html: this.props.pgmText}}>
         </div>
     );
   }
@@ -161,18 +178,21 @@ TryExample = React.createClass ({
 
 ExamplesWidget = React.createClass ({
   render: function() {
+    var brkSpcStrings = examplePgmStrings.map ( 
+      function(s) { return s.split('').join(zeroWidthBrk) }
+    )
+    var rows = brkSpcStrings.map (
+      function(s) { return <TryExample pgmText={s} target={eADWComponent} /> }
+    )
     return (
       <div>
-        <TryExample pgmText="#4{F100R90}" target={eADWComponent} />
-        <TryExample pgmText="#20{F10R5}" target={eADWComponent} />
-        <TryExample pgmText="#24{F100R75}" target={eADWComponent} />
-        <TryExample pgmText="#8{R45#4{#90{F1R2}R90}}" target={eADWComponent} />
-        <TryExample pgmText="#36{R10#8{F25L45}}" target={eADWComponent} />
+        {rows}
       </div>
     );
   }
 });
 
+// &#8203;
 // --
 
 eADWComponent = React.renderComponent
