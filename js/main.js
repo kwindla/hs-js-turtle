@@ -12,11 +12,10 @@ var examplePgmStrings = [
   , "#36{R10#8{F55L45}}"
 ]
 
-var zeroWidthBrk = '&#8203;'
-
 var ProgramInput, RunItButton, CharCount, ProgramGraphic,
     EvalAndDisplayWidget, TryExample, ExamplesWidget,
-    eADWComponent, exWidgComponent;
+    eADWComponent, exWidgComponent
+
 
 
 React.initializeTouchEvents(true);
@@ -37,31 +36,28 @@ ProgramInput = React.createClass ({displayName: 'ProgramInput',
     return {value: '', charCountHook: null};
   },
   componentWillMount: function() {
-    this.setState({ value: this.props.value
+    this.setState({ value: removeZWB(this.props.value)
                   , charCountHook: this.props.charCountHook })
   },
   componentWillReceiveProps: function(nextProps) {
-    this.setState({value: nextProps.value});
+    this.setState({value: removeZWB(nextProps.value)});
     if (this.state.charCountHook) {
-      this.state.charCountHook (
-        nextProps.value.replace(new RegExp(zeroWidthBrk,'g'), '').length
-      )
+      this.state.charCountHook (nextProps.value.length)
     }
   },
   handleChange: function(event) {
     this.setState({value: event.target.value});
     if (this.state.charCountHook) {
-      this.state.charCountHook (
-        event.target.value.replace(new RegExp(zeroWidthBrk,'g'), '').length
-      )
+      this.state.charCountHook (event.target.value.length)
     }
   },
   render: function() {
     var value = this.state.value;
     return (
         React.DOM.textarea( {id:"program-input",
-                  value:value.replace(new RegExp(zeroWidthBrk,'g'), ''),
-                  onChange:this.handleChange} )
+                  value:value,
+                  onChange:this.handleChange}
+        )
     );
   }
 });
@@ -118,9 +114,9 @@ EvalAndDisplayWidget = React.createClass ({displayName: 'EvalAndDisplayWidget',
     return { turtleSVG: "", pgmText: "" }
   },
   setProgramTextAndEval: function (newProgramText) {
-    var pgmUnmunged = newProgramText.replace(new RegExp(zeroWidthBrk,'g'), '')
+    var pgmUnmunged = removeZWB (newProgramText)
     var svgText = window.runProgramSVGBody (pgmUnmunged)
-    this.setState ( { pgmText: newProgramText
+    this.setState ( { pgmText: pgmUnmunged
                     , turtleSVG: svgText } )
     this.refs['programInput'].getDOMNode().scrollIntoView(true)
   },
@@ -178,9 +174,7 @@ TryExample = React.createClass ({displayName: 'TryExample',
 
 ExamplesWidget = React.createClass ({displayName: 'ExamplesWidget',
   render: function() {
-    var brkSpcStrings = examplePgmStrings.map ( 
-      function(s) { return s.split('').join(zeroWidthBrk) }
-    )
+    var brkSpcStrings = examplePgmStrings.map ( insertZWB )
     var rows = brkSpcStrings.map (
       function(s) { return TryExample( {pgmText:s, target:eADWComponent} ) }
     )
@@ -192,8 +186,6 @@ ExamplesWidget = React.createClass ({displayName: 'ExamplesWidget',
   }
 });
 
-// &#8203;
-// --
 
 eADWComponent = React.renderComponent
   ( EvalAndDisplayWidget(null ),
@@ -205,3 +197,18 @@ exWidgComponent = React.renderComponent
     document.getElementById ('examples-boxes') 
   );
 
+
+// ----
+
+
+
+function insertZWB (str) {
+  var zeroWidthBrk = '\u200b'
+  return str.split ('').
+             filter ( function(c) {return c!=zeroWidthBrk} ).
+             join (zeroWidthBrk)
+}
+function removeZWB (str) {
+  var zeroWidthBrk = '\u200b'
+  return str.replace (new RegExp(zeroWidthBrk,'g'), '')
+}

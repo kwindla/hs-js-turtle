@@ -25,8 +25,7 @@ h1 {
 #program-input {
   font-family: 'Inconsolata', 'monospace';
   font-size: 1.4em;
-  word-wrap: break-word;
-  overflow-wrap: break-word;
+  white-space: pre;
 }
 
 #char-run-container {
@@ -68,6 +67,7 @@ h1 {
   max-width: 190;
   word-wrap: break-word;
   overflow-wrap: break-word;
+
 }
 
 .try-example {
