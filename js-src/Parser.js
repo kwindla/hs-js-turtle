@@ -138,6 +138,9 @@ function _factor () {
   if (t0.is('TokenOperator') && (t0.v == 'Minus')) {
     return UnaryOp ('-', function(v) { return -(v) }, this.expression())
   }
+  if (t0.is('TokenOperator') && (t0.v == 'Not')) {
+    return UnaryOp ('!', function(v) { return !(v) }, this.expression())
+  }
   throw ("incomplete pattern match in factor :) - " + t0.inspect())
 }
 
@@ -162,6 +165,10 @@ function _termTail (expr) {
     } else if (t0.v == 'Div') {
       this.tokens.shift()
       return this.expressionTail (BinaryOp ('/', function(a,b){return a/b},
+                                            expr, this.term()) )
+    } else if (t0.v == 'Mod') {
+      this.tokens.shift()
+      return this.expressionTail (BinaryOp ('\\', function(a,b){return a%b},
                                             expr, this.term()) )
     }
   } 

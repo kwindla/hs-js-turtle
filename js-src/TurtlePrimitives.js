@@ -14,16 +14,17 @@ var TurtleGlobals = {
   , R: st.BoundBuiltin (1, function (e) { return _RotateRight (e, this) })
   , L: st.BoundBuiltin (1, function (e) { return _RotateLeft (e, this) })
 
+  , M: st.BoundBuiltin (2, function (e) { return _MoveTo (e, this) })
   , B: st.BoundBuiltin (2, function (e) { return _MoveBy (e, this) })
   , T: st.BoundBuiltin (1, function (e) { return _TurnTo (e, this) })
-  , M: st.BoundBuiltin (1, function (e) { return _MoveTo (e, this) })
+  , H: st.BoundBuiltin (1, function (e) { return _TurnBy (e, this) })
 
   , A: st.BoundBuiltin (1, function (e) { return _Alpha (e, this) })
   , C: st.BoundBuiltin (3, function (e) { return _Color (e, this) })
 
-  , '^': st.BoundBuiltin (1, function (e) { return _PenToggle (e, this) })
-  , U: st.BoundBuiltin (1, function (e) { return _PenUp (e, this) })
-  , N: st.BoundBuiltin (1, function (e) { return _PenDown (e, this) })
+  , '^': st.BoundBuiltin (0, function (e) { return _PenToggle (e, this) })
+  , U: st.BoundBuiltin (0, function (e) { return _PenUp (e, this) })
+  , N: st.BoundBuiltin (0, function (e) { return _PenDown (e, this) })
   , K: st.BoundBuiltin (1, function (e) { return _StrokeWidth (e, this) })
 }
 
@@ -37,17 +38,16 @@ function InitialSymbolTable () {
 }
 
 
+// --
+
+// FIX: respect pen position -- draw when pen is down
 function _Forward (exprl, evalState) {
   var howFar, p0, p1
   howFar = evalState.evaluate (exprl[0])
   p0 = evalState.turtle.pos.copy ()
   p1 = p0.copy().
     plus (evalState.turtle.heading.directionVect().times(howFar))
-  evalState.svg.push (
-    '<line x1="' + p0.x + '" y1="' + p0.y +
-        '" x2="' + p1.x + '" y2="' + p1.y +
-        '" style="stroke:' + evalState.turtle.color.toString() + 
-             ';stroke-width:' + evalState.turtle.strokeWidth + '" />')
+  if (evalState.turtle.penIsDown) { lineFromTo (p0, p1, evalState) }
   evalState.turtle.pos = p1
   return howFar
 }
@@ -64,12 +64,32 @@ function _RotateLeft (exprl, evalState) {
   return howMuch
 }
 
+// FIX: respect pen position -- draw when pen is down
 function _MoveBy (exprl, evalState) {
+  var p0 = evalState.turtle.pos.copy ()
+    , p1 = evalState.turtle.pos.plus(Point ( evalState.evaluate (exprl[0])
+                                           , evalState.evaluate (exprl[1]) ))
+  if (evalState.turtle.penIsDown) { lineFromTo (p0, p1, evalState) }
+  return Math.sqrt( Math.pow(p1.x-p0.x,2) + Math.pow(p1.y-p0.y,2) )
+}
+
+function _MoveTo (exprl, evalState) {
+  var p0 = evalState.turtle.pos;
   var p1 = Point ( evalState.evaluate (exprl[0])
                  , evalState.evaluate (exprl[1]) )
-    , p0 = evalState.turtle.pos   
-  evalState.turtle.pos.plus (p)
+  if (evalState.turtle.penIsDown) { lineFromTo (p0, p1, evalState) }
+  evalState.turtle.pos = p1
   return Math.sqrt( Math.pow(p1.x-p0.x,2) + Math.pow(p1.y-p0.y,2) )
+}
+
+function _TurnBy (exprl, evalState) {
+  var d = evalState.evaluate (exprl[0])
+  return evalState.turtle.heading.rotate (d)
+}
+
+function _TurnTo (exprl, evalState) {
+  var d = evalState.evaluate (exprl[0])
+  return evalState.turtle.heading.set (d)
 }
 
 function _Alpha (exprl, evalState) {
@@ -88,6 +108,33 @@ function _Color (exprl, evalState) {
   return (0.299*newR + 0.587*newG + 0.114*newB)
 }
 
+function _PenToggle (exprl, evalState) {
+  return evalState.turtle.penIsDown = !evalState.turtle.penIsDown
+  
+}
+
+function _PenUp (exprl, evalState) {
+  return evalState.turtle.penIsDown = false
+}
+
+function _PenDown (exprl, evalState) {
+  return evalState.turtle.penIsDown = true
+}
+
+function _StrokeWidth (exprl, evalState) {
+  var width = evalState.evaluate (exprl[0])
+  return evalState.turtle.strokeWidth = width
+}
+
+function lineFromTo (p0, p1, evalState) {
+  evalState.svg.push (
+    '<line x1="' + p0.x + '" y1="' + p0.y +
+      '" x2="' + p1.x + '" y2="' + p1.y +
+      '" style="stroke:' + evalState.turtle.color.toString() + 
+      ';stroke-width:' + evalState.turtle.strokeWidth + '" />'
+  )
+}
+
 // --
 
 
@@ -99,8 +146,8 @@ function Turtle (heading, pos, color, strokeWidth, penState) {
       strokeWidth: 1,
       penIsDown: true,
       heading: {
-        set: function(degrees) { t._heading=degrees },
-        rotate: function(degrees) { t._heading+=degrees },
+        set: function(degrees) { return t._heading=degrees },
+        rotate: function(degrees) { return t._heading+=degrees },
         degrees: function() {return t._heading},
         directionVect: function () {
           var theta = 2 * Math.PI * t._heading / 360
