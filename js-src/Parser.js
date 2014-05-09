@@ -88,7 +88,12 @@ function _comparison (expr) {
       this.tokens.shift()
       return this.expressionTail (BinaryOp ('<', function(a,b){return a<b},
                                             expr, this.term()) )
+    } else if (t0.v == 'Equals') {
+      this.tokens.shift()
+      return this.expressionTail (BinaryOp ('=', function(a,b){return a===b},
+                                            expr, this.term()) )
     }
+
   } 
   return expr
 }

@@ -2,13 +2,9 @@
 exports.tokenize = tokenize
 
 
-var u = require ('underscore')
-u.s = require ('underscore.string')
-
-
 var TokenCases = [
-  // isSpace case is handled by an ltrim down in the driver function
-  [ /^[a-zA-Z]/, function (m) { return TokenSymbol (m[0]) } ],  
+  // isSpace case is handled by a trim down in the driver function
+  [ /^[a-zA-Z\^\%]/, function (m) { return TokenSymbol (m[0]) } ],  
   [ '=', TokenEquals ],
   [ '(', TokenLeftParen ],
   [ ')', TokenRightParen ],
@@ -18,6 +14,7 @@ var TokenCases = [
   [ '-', TokenOperator, 'Minus' ],
   [ '*', TokenOperator, 'Times' ],
   [ '/', TokenOperator, 'Div' ],
+  [ '~', TokenOperator, 'Equals' ],
   [ '>', TokenOperator, 'GreaterThan' ],
   [ '<', TokenOperator, 'LessThan' ],
   [ '&', TokenDefun ],
@@ -29,14 +26,16 @@ var TokenCases = [
 
 function tokenize (stream) {
   var r = {}
-  stream = u.s.ltrim (stream)
+  stream = stream.replace (/^\s+/,'')
   if (! stream) {
     return []
   }
   r.stream = stream
-  if (! u.find (TokenCases, tryCase, r)) {
+  if (! TokenCases.some (tryCase, r)) {
     throw "could not tokenize: " + stream
   }
+
+  
   return [r.result.token].concat(tokenize(r.result.stream))
 }
 
@@ -51,7 +50,8 @@ function tryCase (tcase) {
 
 function tryLiteral (stream, tcase) {
   var cas = tcase[0]
-  if (u.isString(cas) && u.s.startsWith(stream,cas)) {
+  if (stream.indexOf(cas) == 0) {  // duck type, here (test only
+                                   // succeeds if cas is a string)
     return { token: tcase[1](tcase.slice(2)),
              stream: stream.substr(cas.length) }
   }
@@ -61,7 +61,7 @@ function tryLiteral (stream, tcase) {
 function tryRegExp (stream, tcase) {
   var cas = tcase[0]
   var m
-  if (u.isRegExp(cas) && (m=stream.match(cas))) {
+  if (cas.test && (m=stream.match(cas))) {
     var matched_chars = m[0]
     var token = tcase[1](m)
     return { token: token, stream: stream.substr(matched_chars.length) }

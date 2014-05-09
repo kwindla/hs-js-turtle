@@ -6,7 +6,7 @@ module Tokenizer
 import Data.Typeable  -- used by our custom Test.Hasty node testrunner
 import Data.Char
 
-data Operator = Plus | Minus | Times | Div | GreaterThan | LessThan 
+data Operator = Plus | Minus | Times | Div | GreaterThan | LessThan | Equals
   deriving (Show, Read, Eq, Typeable)
 
 data Token = TokenEquals            |

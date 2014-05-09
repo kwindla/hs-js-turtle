@@ -15,6 +15,9 @@ parserBasicsTests =
   , ("times", "a*3", [BinaryOp (read "(*)") (Symbol 'a') (ConstantNumber 3.0)])
   , ("div", "a/3", [BinaryOp (read "(/)") (Symbol 'a') (ConstantNumber 3.0)])
 
+  , ("equals", "a~3",
+       [BinaryOp (read "(=)") (Symbol 'a') (ConstantNumber 3.0)])
+
   , ("greater than", "a>3",
        [BinaryOp (read "(>)") (Symbol 'a') (ConstantNumber 3.0)])
   , ("less than", "a<3",

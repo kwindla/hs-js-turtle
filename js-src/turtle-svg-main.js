@@ -10,3 +10,6 @@ window.showOutput = function (inName, outName) {
   svgString = svg.runProgramSVG (input.value)
   output.innerHTML = svgString
 }
+
+window.runProgramSVGElement = svg.runProgramSVGElement
+window.runProgramSVGBody = svg.runProgramSVGBody

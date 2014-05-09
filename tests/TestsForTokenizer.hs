@@ -43,5 +43,6 @@ tokenizerTests =
   , ("div", "/",  [ TokenOperator Div ])
   , ("greater than", ">", [ TokenOperator GreaterThan ])
   , ("less than", "<", [ TokenOperator LessThan ])
+  , ("equals", "~", [ TokenOperator Equals ])
   ]
 

@@ -46,6 +46,7 @@ instance Read BinaryFunc where
                                      , ("(-)", BinaryFunc "-" undefined)
                                      , ("(*)", BinaryFunc "*" undefined) 
                                      , ("(/)", BinaryFunc "/" undefined)
+                                     , ("(=)", BinaryFunc "=" undefined)
                                      , ("(>)", BinaryFunc ">" undefined)
                                      , ("(<)", BinaryFunc "<" undefined)
                                      ]

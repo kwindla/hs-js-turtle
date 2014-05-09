@@ -1,7 +1,9 @@
 
-exports.runProgramSVG    = runProgramSVG
-exports.runProgramValues = runProgramValues
-exports.runProgram       = runProgram
+
+exports.runProgramSVGElement = runProgramSVGElement
+exports.runProgramSVGBody    = runProgramSVGBody
+exports.runProgramValues     = runProgramValues
+exports.runProgram           = runProgram
 
 
 var tp = require ('./TurtlePrimitives')
@@ -11,7 +13,7 @@ var evaluator = require ('./Evaluator')
 
 
 function runProgram (str) {
-  var tokens, exprl, symTab, turtle, svg
+  var tokens, exprl, symTab, turtle, color, svg
 
   tokens = tokenizer.tokenize (str)
   exprl = parser.parse (tokens, tp.InitialSymbolTable ())
@@ -26,13 +28,20 @@ function runProgram (str) {
   return resultState
 }
 
-function runProgramSVG (str) {
+function runProgramSVGElement (str) {
+  return '<svg width="400" height="400">' +
+           runProgramSVGBody (str) +
+         '</svg>'
+}
+
+function runProgramSVGBody (str) {
   var resultState = runProgram (str)
-  finalSVG = '<svg width="400" height="400">' +
-    '<g transform="translate(0,400)">' +
+  finalSVG = 
+    '<g transform="translate(0,320)">' +
     '<g transform="scale(1,-1)">' +
     (resultState.svg.join("\n")) + 
-    "\n" + '</g></g></svg>'
+    "\n" +
+    '</g></g>';
   return finalSVG
 }
 
