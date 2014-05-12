@@ -104,29 +104,51 @@ ProgramGraphic = React.createClass ({
   }
 });
 
+
 // Container and data flow for the combined input text area, character
 // count, run button, and svg graphical display.
 //
 EvalAndDisplayWidget = React.createClass ({
-  defaultProgramText: "#8{R45#4{#90{F(18/10)R2}R90}}",
+  defaultProgramText: "^B(-110)0^d=(1/2)i=0#27{K((i\\4)+1)*" +
+                      "(3/4)#180{FdR2}d=d*(11/10)^B(-d)0^i=i+1}",
 
   getInitialState: function() {
-    return { turtleSVG: "", pgmText: "" }
+    return { turtleSVG: "", pgmText: "", evalProgress: 0 }
   },
-  setProgramTextAndEval: function (newProgramText) {
+  setProgramText: function (newProgramText) {
     var pgmUnmunged = removeZWB (newProgramText)
-    var svgText = window.runProgramSVGBody (pgmUnmunged)
-    this.setState ( { pgmText: pgmUnmunged
-                    , turtleSVG: svgText } )
+    var pgmState = window.
+      startProgramRun (pgmUnmunged
+                       , function () { // yield func
+                         return !(this.instructionCount % 250)
+                       })
+    this.setState ( { pgmText: pgmUnmunged } )
     this.refs['programInput'].getDOMNode().scrollIntoView(true)
+    this.refs['evalProgress'].getDOMNode().style.visibility = 'visible'
+    var evalAndSetWhenDone = function () {
+      // console.log ("easwd")
+      // fix: store the timer id in our component state so we can
+      // cancel it if user starts another eval.
+      // also: error out of a high instruction count, here?
+      pgmState.continue ()
+      if (pgmState.done) {
+        console.log ("got it! instruction count: " + pgmState.instructionCount)
+        this.refs['evalProgress'].getDOMNode().style.visibility = 'hidden'
+        this.setState ( { evalProgress: pgmState.instructionCount
+                          , turtleSVG: pgmState.SVGBody() } )
+      } else {
+        this.setState ( { evalProgress: pgmState.instructionCount } )
+        window.setTimeout (evalAndSetWhenDone.bind(this), 0)
+      }
+    }
+    evalAndSetWhenDone.bind(this)()
   },
-  setPTAndEFromProgramInput: function () {
+  setPTFromProgramInput: function () {
     var pgmText = this.refs['programInput'].state.value
-    this.setProgramTextAndEval (pgmText)
-
+    this.setProgramText (pgmText)
   },
   componentDidMount: function () {
-    this.setProgramTextAndEval (this.defaultProgramText);
+    this.setProgramText (this.defaultProgramText);
   },
   render: function() {
     return (
@@ -140,11 +162,16 @@ EvalAndDisplayWidget = React.createClass ({
         <div id="char-run-container">
           <CharCount ref="charCount" />
           <RunItButton
-            onClick={this.setPTAndEFromProgramInput}
-            onTouchStart={this.setPTAndEFromProgramInput}
+            onClick={this.setPTFromProgramInput}
+            onTouchStart={this.setPTFromProgramInput}
           />
         </div>
-        <ProgramGraphic turtleSVG={this.state.turtleSVG} />
+        <div id="graphic-container">
+          <ProgramGraphic turtleSVG={this.state.turtleSVG} />
+          <div id="eval-progress-meter" ref="evalProgress">
+            {'[' + this.state.evalProgress + ']'}
+          </div>
+        </div>
       </div>
     );
   }
@@ -158,7 +185,7 @@ EvalAndDisplayWidget = React.createClass ({
 TryExample = React.createClass ({
   handleClick: function (e) {
     e.preventDefault ()
-    this.props.target.setProgramTextAndEval (this.props.pgmText);
+    this.props.target.setProgramText (this.props.pgmText);
   },
   render: function() {
     return (

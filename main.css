@@ -54,11 +54,31 @@ h1 {
   cursor: default;
 }
 
+#graphic-container {
+  width: 320;
+  height: 320;
+  position: relative;
+  margin-bottom: 1em;
+}
+
 #program-graphic {
   border: 3px solid #d8d2ff;
+  position: absolute;
+  top: 0;
+  left: 0;                   
   width: 314;
   height: 314;
   margin-bottom: 2em;
+}
+
+#eval-progress-meter {
+  font-family: 'Inconsolata', monospace;
+  height: 100%;
+  margin: auto;
+  font-size: 65px;
+  line-height: 300px;
+  text-align: center;
+  color: #72707f;
 }
 
 #examples {
