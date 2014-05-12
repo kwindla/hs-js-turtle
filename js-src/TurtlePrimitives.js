@@ -10,22 +10,22 @@ var TurtleGlobals = {
   // for functions defined here, "this" will be the current
   // EvalState. e is the passed-in exprl of args to the function
     P: st.BoundValue (Math.PI)
-  , F: st.BoundBuiltin (1, function (e) { return _Forward (e, this) })
-  , R: st.BoundBuiltin (1, function (e) { return _RotateRight (e, this) })
-  , L: st.BoundBuiltin (1, function (e) { return _RotateLeft (e, this) })
+  , F: st.BoundBuiltin (1, _Forward)
+  , R: st.BoundBuiltin (1, _RotateRight)
+  , L: st.BoundBuiltin (1, _RotateLeft)
 
-  , M: st.BoundBuiltin (2, function (e) { return _MoveTo (e, this) })
-  , B: st.BoundBuiltin (2, function (e) { return _MoveBy (e, this) })
-  , T: st.BoundBuiltin (1, function (e) { return _TurnTo (e, this) })
-  , H: st.BoundBuiltin (1, function (e) { return _TurnBy (e, this) })
+  , M: st.BoundBuiltin (2, _MoveTo)
+  , B: st.BoundBuiltin (2, _MoveBy)
+  , T: st.BoundBuiltin (1, _TurnTo)
+  , H: st.BoundBuiltin (1, _TurnBy)
 
-  , A: st.BoundBuiltin (1, function (e) { return _Alpha (e, this) })
-  , C: st.BoundBuiltin (3, function (e) { return _Color (e, this) })
+  , A: st.BoundBuiltin (1, _Alpha)
+  , C: st.BoundBuiltin (3, _Color)
 
-  , '^': st.BoundBuiltin (0, function (e) { return _PenToggle (e, this) })
-  , U: st.BoundBuiltin (0, function (e) { return _PenUp (e, this) })
-  , N: st.BoundBuiltin (0, function (e) { return _PenDown (e, this) })
-  , K: st.BoundBuiltin (1, function (e) { return _StrokeWidth (e, this) })
+  , '^': st.BoundBuiltin (0, _PenToggle)
+  , U: st.BoundBuiltin (0, _PenUp)
+  , N: st.BoundBuiltin (0, _PenDown)
+  , K: st.BoundBuiltin (1, _StrokeWidth)
 }
 
 
@@ -41,63 +41,89 @@ function InitialSymbolTable () {
 // --
 
 // FIX: respect pen position -- draw when pen is down
-function _Forward (exprl, evalState) {
+function _Forward (exprl, s, k) {
   var howFar, p0, p1
-  howFar = evalState.evaluate (exprl[0])
-  p0 = evalState.turtle.pos.copy ()
-  p1 = p0.copy().
-    plus (evalState.turtle.heading.directionVect().times(howFar))
-  if (evalState.turtle.penIsDown) { lineFromTo (p0, p1, evalState) }
-  evalState.turtle.pos = p1
-  return howFar
+  return s.eval (
+    exprl[0], s,
+    function (howFar) {
+      var p0 = s.turtle.pos.copy ()
+      var p1 = p0.copy().
+        plus (s.turtle.heading.directionVect().times(howFar))
+      if (s.turtle.penIsDown) { lineFromTo (p0, p1, s) }
+      s.turtle.pos = p1
+      return k (howFar)
+    });
 }
 
-function _RotateRight (exprl, evalState) {
-  var howMuch = evalState.evaluate (exprl[0])
-  evalState.turtle.heading.rotate (howMuch)
-  return howMuch
+function _RotateRight (exprl, s, k) {
+  return s.eval (exprl[0], s,
+                 function (howMuch) {
+                   s.turtle.heading.rotate (howMuch)
+                   return k (howMuch)
+                 });
 }
 
-function _RotateLeft (exprl, evalState) {
-  var howMuch = evalState.evaluate (exprl[0])
-  evalState.turtle.heading.rotate (-howMuch)
-  return howMuch
+function _RotateLeft (exprl, s, k) {
+  return s.eval (exprl[0], s,
+                 function (howMuch) {
+                   s.turtle.heading.rotate (-howMuch)
+                   return k (howMuch)
+                 });
 }
 
-// FIX: respect pen position -- draw when pen is down
-function _MoveBy (exprl, evalState) {
-  var p0 = evalState.turtle.pos.copy ()
-    , p1 = evalState.turtle.pos.plus(Point ( evalState.evaluate (exprl[0])
-                                           , evalState.evaluate (exprl[1]) ))
-  if (evalState.turtle.penIsDown) { lineFromTo (p0, p1, evalState) }
-  return Math.sqrt( Math.pow(p1.x-p0.x,2) + Math.pow(p1.y-p0.y,2) )
+function _MoveBy (exprl, s, k) {
+  return s.eval (
+    exprl[0], s,
+    function (x) {
+      return s.eval (exprl[1], s,
+                         function (y) {
+                           var p0 = s.turtle.pos.copy ()
+                           var p1 = s.turtle.pos.plus (Point (x,y))
+                           if (s.turtle.penIsDown) {
+                             lineFromTo (p0, p1, s)
+                           }
+                           return k (Math.sqrt( Math.pow(p1.x-p0.x,2) + 
+                                                Math.pow(p1.y-p0.y,2) ))
+                         });
+    });
 }
 
-function _MoveTo (exprl, evalState) {
-  var p0 = evalState.turtle.pos;
-  var p1 = Point ( evalState.evaluate (exprl[0])
-                 , evalState.evaluate (exprl[1]) )
-  if (evalState.turtle.penIsDown) { lineFromTo (p0, p1, evalState) }
-  evalState.turtle.pos = p1
-  return Math.sqrt( Math.pow(p1.x-p0.x,2) + Math.pow(p1.y-p0.y,2) )
+function _MoveTo (exprl, s, k) {
+  return s.eval (
+    exprl[0], s,
+    function (x) {
+      return s.eval (exprl[1], s,
+                     function (y) {
+                       var p0 = s.turtle.pos.copy ()
+                       var p1 = Point (x,y)
+                       if (s.turtle.penIsDown) {
+                         lineFromTo (p0, p1, s)
+                       }
+                       s.turtle.pos = p1
+                       return k (Math.sqrt( Math.pow(p1.x-p0.x,2) + 
+                                            Math.pow(p1.y-p0.y,2) ))
+                     });
+    });
 }
 
-function _TurnBy (exprl, evalState) {
-  var d = evalState.evaluate (exprl[0])
-  return evalState.turtle.heading.rotate (d)
+function _TurnBy (exprl, s, k) {
+  return s.eval (exprl[0], s,
+                 function (d) { return k (s.turtle.heading.rotate (d)) })
 }
 
-function _TurnTo (exprl, evalState) {
-  var d = evalState.evaluate (exprl[0])
-  return evalState.turtle.heading.set (d)
+function _TurnTo (exprl, s, k) {
+  return s.eval (exprl[0], s,
+                 function (d) { return k (s.turtle.heading.set (d)) })
+
 }
 
-function _Alpha (exprl, evalState) {
-  var newA = evalState.evaluate (exprl[0])
-  evalState.turtle.color.a = newA
-  return newA
+function _Alpha (exprl, s, k) {
+  return s.eval (exprl[0], s,
+                 function (newA) { s.turtle.color.a = newA;
+                                   return k (newA) })
 }
 
+//FIX:
 function _Color (exprl, evalState) {
   var newR = evalState.evaluate (exprl[0])
     , newG = evalState.evaluate (exprl[1])
@@ -108,22 +134,23 @@ function _Color (exprl, evalState) {
   return (0.299*newR + 0.587*newG + 0.114*newB)
 }
 
-function _PenToggle (exprl, evalState) {
-  return evalState.turtle.penIsDown = !evalState.turtle.penIsDown
+function _PenToggle (exprl, s, k) {
+  return k (s.turtle.penIsDown = !s.turtle.penIsDown)
   
 }
 
-function _PenUp (exprl, evalState) {
-  return evalState.turtle.penIsDown = false
+function _PenUp (exprl, s, k) {
+  return k (s.turtle.penIsDown = false)
 }
 
-function _PenDown (exprl, evalState) {
-  return evalState.turtle.penIsDown = true
+function _PenDown (exprl, s, k) {
+  return k (evalState.turtle.penIsDown = true)
 }
 
-function _StrokeWidth (exprl, evalState) {
-  var width = evalState.evaluate (exprl[0])
-  return evalState.turtle.strokeWidth = width
+function _StrokeWidth (exprl, s, k) {
+  return s.eval (
+    exprl[0], s,
+    function (width) { return k (s.turtle.strokeWidth = width) })
 }
 
 function lineFromTo (p0, p1, evalState) {

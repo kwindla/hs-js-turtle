@@ -11,5 +11,4 @@ window.showOutput = function (inName, outName) {
   output.innerHTML = svgString
 }
 
-window.runProgramSVGElement = svg.runProgramSVGElement
-window.runProgramSVGBody = svg.runProgramSVGBody
+window.startProgramRun = svg.startProgramRun

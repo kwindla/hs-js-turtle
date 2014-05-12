@@ -1,12 +1,15 @@
 
 var tsvg = require ('./TurtleSVG')
 
-
-console.log (tsvg.runProgramSVGElement (process.argv[2]))
-
-// console.log (tsvg.runProgramValues (process.argv[2]))
-
-// var t = require ('./Tokenizer')
-// console.log (t.tokenize(process.argv[2]))
-
-
+pgmState = tsvg.
+  startProgramRun (process.argv[2]
+                   , function () {
+                     console.log( ! (this.instructionCount % 100) );
+                     return ! (this.instructionCount % 1)
+                   }
+                  )
+while (! pgmState.done) {
+  // console.log (pgmState)
+  pgmState.continue ()
+}
+console.log (pgmState.values ())

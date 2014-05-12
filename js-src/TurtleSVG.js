@@ -1,10 +1,8 @@
 
-
-exports.runProgramSVGElement = runProgramSVGElement
-exports.runProgramSVGBody    = runProgramSVGBody
-exports.runProgramValues     = runProgramValues
+exports.startProgramRun      = startProgramRun
 exports.runProgram           = runProgram
-
+exports.runProgramSVGElement = runProgramSVGElement
+exports.runProgramValues     = runProgramValues
 
 var tp = require ('./TurtlePrimitives')
 var tokenizer = require ('./Tokenizer')
@@ -12,41 +10,48 @@ var parser = require ('./Parser')
 var evaluator = require ('./Evaluator')
 
 
-function runProgram (str) {
+function startProgramRun (str, yieldTest) {
   var tokens, exprl, symTab, turtle, color, svg
-
   tokens = tokenizer.tokenize (str)
   exprl = parser.parse (tokens, tp.InitialSymbolTable ())
-
-  // console.log (exprl); console.log ("----")
-
   symTab = tp.InitialSymbolTable ()
   turtle = tp.Turtle ()
   svg = []
-
-  resultState = evaluator.evaluate (exprl, symTab, { turtle: turtle, svg: svg })
-  return resultState
+  pgmState = evaluator.evaluate (exprl,
+                                 symTab, { turtle: turtle, svg: svg },
+                                 yieldTest
+                                )
+  pgmState.SVGBody = function () { return SVGBodyFromProgramState (this) }
+  pgmState.SVGElement = function () { return SVGElementFromProgramState (this) }
+  return pgmState
 }
 
-function runProgramSVGElement (str) {
-  return '<svg width="400" height="400">' +
-           runProgramSVGBody (str) +
-         '</svg>'
-}
-
-function runProgramSVGBody (str) {
-  var resultState = runProgram (str)
-  finalSVG = 
-    '<g transform="translate(0,320)">' +
-    '<g transform="scale(1,-1)">' +
-    (resultState.svg.join("\n")) + 
-    "\n" +
-    '</g></g>';
-  return finalSVG
+function runProgram (str) {
+  pgmState = startProgramRun (str)
+  while (! pgmState.done) {
+    pgmState.continue ()
+  }
+  return pgmState
 }
 
 function runProgramValues (str) {
-  var resultState = runProgram (str)
-  return resultState.values
+  return runProgram(str).values()
 }
 
+function runProgramSVGElement (str) {
+  return runProgram(str).SVGElement()
+}
+
+function SVGBodyFromProgramState (s) {
+  return '<g transform="translate(0,320)">' +
+         '<g transform="scale(1,-1)">' +
+         (s.svg.join("\n")) + 
+         "\n" + '</g></g>';
+}
+
+function SVGElementFromProgramState (s, width, height) {
+  w = width || 320; h = height || 320
+  return '<svg width="' + w + '" height="' + h + '">' +
+         SVGBodyFromProgramState (s) +
+         '</svg>'
+}
