@@ -5,11 +5,11 @@
 
 
 var examplePgmStrings = [
-    "#10{#3{F120R120}R36}"
-  , "^B(-110)0^d=(1/2)i=0#27{K((i\\4)+1)*(3/4)#180{FdR2}d=d*(11/10)^B(-d)0^i=i+1}"
-  , "^B(-110)(-85)^#24{F170R75}"
-  , "#8{R45#4{#90{F(18/10)R2}R90}}"
-  , "#36{R10#8{F55L45}}"
+  "^B(-35)0^d=(2/13)i=0#27{K((i\\4)+1)*(4/19)#180{FdR2}d=d*(11/10)^B(-d)0^i=i+1}"
+  ,  "#10{#3{F45R120}R36}"
+  , "^B(-39)(-30)K(2/3)^#24{F60R75}"
+  , "#8{R45#4{#90{F(3/5)R2}R90}}"
+  , "K(1/5)#36{R10#8{F18L45}}"
 ]
 
 var ProgramInput, RunItButton, CharCount, ProgramGraphic,
@@ -95,8 +95,8 @@ ProgramGraphic = React.createClass ({displayName: 'ProgramGraphic',
     return (
       React.DOM.div(
        {dangerouslySetInnerHTML:
-         {__html: '<svg id="program-graphic" viewbox="0,0,320,320">'
-                  + this.props.turtleSVG 
+         {__html: '<svg id="program-graphic" viewbox="0,0,100,100">'
+                  +  this.props.turtleSVG 
                   + '</svg>'}
          }
       )
@@ -109,8 +109,7 @@ ProgramGraphic = React.createClass ({displayName: 'ProgramGraphic',
 // count, run button, and svg graphical display.
 //
 EvalAndDisplayWidget = React.createClass ({displayName: 'EvalAndDisplayWidget',
-  defaultProgramText: "^B(-110)0^d=(1/2)i=0#27{K((i\\4)+1)*" +
-                      "(3/4)#180{FdR2}d=d*(11/10)^B(-d)0^i=i+1}",
+  defaultProgramText: examplePgmStrings[0],
 
   getInitialState: function() {
     return { turtleSVG: "", pgmText: "", evalProgress: 0 }

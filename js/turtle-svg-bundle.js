@@ -956,7 +956,9 @@ function lineFromTo (p0, p1, evalState) {
     '<line x1="' + p0.x + '" y1="' + p0.y +
       '" x2="' + p1.x + '" y2="' + p1.y +
       '" style="stroke:' + evalState.turtle.color.toString() + 
-      ';stroke-width:' + evalState.turtle.strokeWidth + '" />'
+      ';stroke-width:' + evalState.turtle.strokeWidth + 
+      ';stroke-linecap:round' +
+      '" />'
   )
 }
 
@@ -966,9 +968,9 @@ function lineFromTo (p0, p1, evalState) {
 function Turtle (heading, pos, color, strokeWidth, penState) {
   var t = Object.create (
     { _heading: 0.0,
-      pos:       Point (160, 160),
+      pos:       Point (50, 50),
       color:     Color (0, 0, 0, 1.0),
-      strokeWidth: 1,
+      strokeWidth: 1.0,
       penIsDown: true,
       heading: {
         set: function(degrees) { return t._heading=degrees },
@@ -1062,7 +1064,7 @@ function runProgramSVGElement (str) {
 }
 
 function SVGBodyFromProgramState (s) {
-  return '<g transform="translate(0,320)">' +
+  return '<g transform="translate(0,100)">' +
          '<g transform="scale(1,-1)">' +
          (s.svg.join("\n")) + 
          "\n" + '</g></g>';
@@ -1070,7 +1072,8 @@ function SVGBodyFromProgramState (s) {
 
 function SVGElementFromProgramState (s, width, height) {
   w = width || 320; h = height || 320
-  return '<svg width="' + w + '" height="' + h + '">' +
+  return '<svg width="' + w + '" height="' + h + 
+            '" viewbox="0 0 100 100' + '">' +
          SVGBodyFromProgramState (s) +
          '</svg>'
 }
