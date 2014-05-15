@@ -8,7 +8,8 @@ h1 {
 }
 
 #top-container {
-  max-width: 800;
+  max-width: 60em;
+  min-width: 40em;
   margin-left: auto;
   margin-right: auto;
 }
@@ -19,7 +20,7 @@ h1 {
 }
 
 #main-widget-root-container {
-  width: 320;
+  width: 40em;
 }
 
 #program-input {
@@ -55,19 +56,15 @@ h1 {
 }
 
 #graphic-container {
-  width: 320;
-  height: 320;
+  border: 3px solid #d8d2ff;
   position: relative;
   margin-bottom: 1em;
 }
 
 #program-graphic {
-  border: 3px solid #d8d2ff;
   position: absolute;
   top: 0;
   left: 0;                   
-  width: 314;
-  height: 314;
   margin-bottom: 2em;
 }
 
@@ -84,7 +81,7 @@ h1 {
 #examples {
   font-family: 'Inconsolata', monospace;
   display: inline-block;
-  max-width: 190;
+  max-width: 12em;
   word-wrap: break-word;
   overflow-wrap: break-word;
 
@@ -102,4 +99,13 @@ textarea {
   resize: none;
   overflow: auto; 
   border: 3px solid #d8d2ff; 
+}
+
+
+@media screen and (max-width: 39em) {
+  body { width: 320; color: red }
+  #top-container { width: 96vw; max-width: 96vw; min-width: 96vw;}
+  #main-widget { margin-right: 0; float: none; }
+  #main-widget-root-container { width: 96vw; }
+
 }

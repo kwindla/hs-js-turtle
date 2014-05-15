@@ -99,6 +99,19 @@ CharCount = React.createClass ({
 // prop containing the dom children of an SVG tag.
 // 
 ProgramGraphic = React.createClass ({
+  componentDidMount: function () {
+    // having trouble getting svg element to be 1:1 aspect ratio,
+    // scalable according to viewport size in vanilla svg, so dropping
+    // back to javacript. FIX: need to catch window resize event and
+    // recalc this. (Of course, the real fix is to do all this in
+    // css.)
+    var el = this.getDOMNode().parentNode
+    var width = window.getComputedStyle(el).getPropertyValue('width')
+    el.style.width = width
+    el.style.height = width
+    console.log ("did mount", width)
+  },
+
   render: function() {
     return (
       <div
@@ -115,6 +128,8 @@ ProgramGraphic = React.createClass ({
 
 // Container and data flow for the combined input text area, character
 // count, run button, and svg graphical display.
+//
+// FIX: need to add back in the scroll-into-view stuff.
 //
 EvalAndDisplayWidget = exports.EvalAndDisplayWidget =
 React.createClass ({
