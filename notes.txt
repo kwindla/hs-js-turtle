@@ -60,3 +60,17 @@ evaluations run in constant space
   - increase iterations making sure stack doesn't blow out
 
 --
+
+mac install
+
+cabal install cabal-install
+cabal update
+cabal install tasty
+cabal install tasty-quickcheck
+cabal install tasty-hunit
+
+sudo npm cache clean -f
+sudo npm install -g n
+sudo /usr/local/share/npm/bin/n stable
+sudo n stable
+
