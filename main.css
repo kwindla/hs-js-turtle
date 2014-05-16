@@ -27,6 +27,7 @@ h1 {
   font-family: 'Inconsolata', 'monospace';
   font-size: 1.4em;
   white-space: pre;
+  margin-bottom: 0.1em;
 }
 
 #char-run-container {
@@ -34,7 +35,6 @@ h1 {
   font-weight: bold;
   padding-top: 4px;
   padding-bottom: 4px;
-  color: #72707f;
 }
 
 #char-count {
@@ -46,18 +46,23 @@ h1 {
 #run-button {
   display: inline-block;
   float: right;
-  padding: 6;
-  background-color: #d8d2ff;
+  padding: 0.4em;
+  padding-top: 0.5em;
+  border: 1px solid #cccccc;
+  border-radius: 5px;
+  transition: background-color 0.75s;
 }
 
 #run-button:hover {
-  color: #0f0074;
-  cursor: default;
+  background-color: #cccccc;
+  cursor: pointer;
 }
 
 #graphic-container {
-  border: 3px solid #d8d2ff;
+  border: 3px solid #cccccc;
+  border-radius: 5px;
   position: relative;
+  margin-top: 0.4em;
   margin-bottom: 1em;
 }
 
@@ -89,8 +94,16 @@ h1 {
 
 .try-example {
   border: 1px solid #d8d2ff;
+  border-radius: 5px;
   padding: 8px;
   margin-top: 10px;
+  cursor: pointer;
+  transition: background-color 0.75s;
+}
+
+.try-example:hover {
+  background-color: #cccccc;
+  cursor: pointer;
 }
 
 textarea {
@@ -98,7 +111,8 @@ textarea {
   height: 6em;
   resize: none;
   overflow: auto; 
-  border: 3px solid #d8d2ff; 
+  border: 3px solid #cccccc; 
+  border-radius: 5px;
 }
 
 

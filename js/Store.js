@@ -30,6 +30,8 @@
 //     list of objects to which we send all state changes
 //
 
+var svg = require ('./lib/TurtleSVG')
+
 
 function Store () {
   var state = { pgmText: ""
@@ -57,7 +59,7 @@ function Store () {
       disposeOfTimer ('pgm-eval')
     }
 
-    var pgmState = window.  // fix: turn the turtle-bundle into a real module
+    var pgmState = svg.
       startProgramRun (state.pgmText,
                        function () { // yield test
                          return !(this.instructionCount % 100)
