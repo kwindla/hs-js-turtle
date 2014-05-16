@@ -43,15 +43,16 @@ function runProgramSVGElement (str) {
 }
 
 function SVGBodyFromProgramState (s) {
-  return '<g transform="translate(0,320)">' +
+  return '<g transform="translate(0,100)">' +
          '<g transform="scale(1,-1)">' +
          (s.svg.join("\n")) + 
          "\n" + '</g></g>';
 }
 
 function SVGElementFromProgramState (s, width, height) {
-  w = width || 320; h = height || 320
-  return '<svg width="' + w + '" height="' + h + '">' +
+  w = width || 99; h = height || 99
+  return '<svg width="' + w + '" height="' + h + 
+            '" viewbox="0 0 100 100' + '">' +
          SVGBodyFromProgramState (s) +
          '</svg>'
 }

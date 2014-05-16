@@ -123,15 +123,20 @@ function _Alpha (exprl, s, k) {
                                    return k (newA) })
 }
 
-//FIX:
-function _Color (exprl, evalState) {
-  var newR = evalState.evaluate (exprl[0])
-    , newG = evalState.evaluate (exprl[1])
-    , newB = evalState.evaluate (exprl[2])
-  evalState.turtle.color.r = newR
-  evalState.turtle.color.g = newG
-  evalState.turtle.color.b = newB
-  return (0.299*newR + 0.587*newG + 0.114*newB)
+function _Color (exprl, s, k) {
+  return s.eval (
+    exprl[0], s,
+    function (r)
+    { return s.eval (
+      exprl[1], s,
+      function (g)
+      { return s.eval (
+        exprl[2], s,
+        function (b)
+        { s.turtle.color.setRGB (r, g, b)
+          return k (0.299*r + 0.587*g + 0.114*b) })
+      })
+    })
 }
 
 function _PenToggle (exprl, s, k) {
@@ -158,7 +163,9 @@ function lineFromTo (p0, p1, evalState) {
     '<line x1="' + p0.x + '" y1="' + p0.y +
       '" x2="' + p1.x + '" y2="' + p1.y +
       '" style="stroke:' + evalState.turtle.color.toString() + 
-      ';stroke-width:' + evalState.turtle.strokeWidth + '" />'
+      ';stroke-width:' + evalState.turtle.strokeWidth + 
+      ';stroke-linecap:round' +
+      '" />'
   )
 }
 
@@ -168,9 +175,9 @@ function lineFromTo (p0, p1, evalState) {
 function Turtle (heading, pos, color, strokeWidth, penState) {
   var t = Object.create (
     { _heading: 0.0,
-      pos:       Point (160, 160),
-      color:     Color (0, 0, 0, 1.0),
-      strokeWidth: 1,
+      pos:       Point (50, 50),
+      color:     Color (0, 0, 0, 99),
+      strokeWidth: 1.0,
       penIsDown: true,
       heading: {
         set: function(degrees) { return t._heading=degrees },
@@ -202,16 +209,18 @@ function Point (x, y) {
 }
 
 function Color (r, g, b, a) {
+  var d = 255/99
   c = Object.create ( 
-    { r: 0, g: 0, b: 0, a: 0 
+    { r: 0, g: 0, b: 0, a: 0
+      , setRGB: function (R,G,B) { this.r=R*d; this.g=G*d; this.b=B*d }
       , toString: function () 
           { return 'rgba(' + [this.r, this.g, this.b, this.a].join(',') + ')' }
     } 
   )
-  if (r) { c.r = r }
-  if (g) { c.g = g }
-  if (b) { c.b = b }
-  if (a) { c.a = a }
+  if (r) { c.r = r*d }
+  if (g) { c.g = g*d }
+  if (b) { c.b = b*d }
+  if (a) { c.a = a/99}
   return c
 }
 
