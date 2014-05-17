@@ -124,7 +124,7 @@ function _TurnTo (exprl, s, k) {
 
 function _Alpha (exprl, s, k) {
   return s.eval (exprl[0], s,
-                 function (newA) { s.turtle.color.a = newA;
+                 function (newA) { s.turtle.color.a = (newA/99);
                                    return k (newA) })
 }
 
@@ -204,6 +204,7 @@ function _Box (exprl, s, k) {
   '<rect x="' + bl.x + '" y="' + bl.y + '" ' +
        ' width="' + width + '" height="' + height + '"' +
        ' fill="' + s.turtle.fillColor.toStringNoAlpha() + '"' +
+       ' fill-opacity="' + s.turtle.color.a.toFixed(2) + '"' +
        ' transform="rotate(' + (-s.turtle.heading.degrees()) + ',' + 
                                s.turtle.pos.x + ',' + s.turtle.pos.y + ')"'
           if (s.turtle.penIsDown) {

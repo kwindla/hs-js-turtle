@@ -19,8 +19,9 @@ function Color (r, g, b, a) {
       , setRGB: function (R,G,B) { this.r=R*d; this.g=G*d; this.b=B*d }
       , setRGBFromBytes: function (R,G,B) { this.r=R; this.g=G, this.b=B }
       , toString: function () {
-          return 'rgba(' + [this.r, this.g, this.b, this.a].
-                    map(function(c){return Math.round(c)}).join(',') + ')' }
+          return 'rgba(' + [this.r, this.g, this.b].
+                    map(function(c){return Math.round(c)}).join(',') + 
+                    ',' + this.a.toFixed(2) + ')' }
       , toStringNoAlpha: function () {
           return 'rgb(' + [this.r, this.g, this.b].
                     map(function(c){return Math.round(c)}).join(',') + ')' }
