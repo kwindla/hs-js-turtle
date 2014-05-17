@@ -494,7 +494,7 @@ var Views      = require ('./Views.js')
 
 var examplePgmStrings = [
   "^B(-35)0^d=(2/13)i=0#27{K((i\\4)+1)*(4/19)#180{FdR2}d=d*(11/10)^B(-d)0^i=i+1}"
-  ,  "K(1/5) a=(17/10) #19{X5(a*5)R5a=a+1}"
+  ,"&s0{a=(17/10)#19{X5(a*5)R5a=a+1}T0}K(1/5)^M50 22^A25s^M50 50^A50s^M50 78^A99s"
   , "^B(-39)(-30)K(2/3)^#24{F60R75}"
   , "#8{R45#4{#90{F(3/5)R2}R90}}"
   , "K(1/5)#36{R10#8{F18L45}}"
@@ -554,8 +554,9 @@ function Color (r, g, b, a) {
       , setRGB: function (R,G,B) { this.r=R*d; this.g=G*d; this.b=B*d }
       , setRGBFromBytes: function (R,G,B) { this.r=R; this.g=G, this.b=B }
       , toString: function () {
-          return 'rgba(' + [this.r, this.g, this.b, this.a].
-                    map(function(c){return Math.round(c)}).join(',') + ')' }
+          return 'rgba(' + [this.r, this.g, this.b].
+                    map(function(c){return Math.round(c)}).join(',') + 
+                    ',' + this.a.toFixed(2) + ')' }
       , toStringNoAlpha: function () {
           return 'rgb(' + [this.r, this.g, this.b].
                     map(function(c){return Math.round(c)}).join(',') + ')' }
@@ -1653,7 +1654,7 @@ function _TurnTo (exprl, s, k) {
 
 function _Alpha (exprl, s, k) {
   return s.eval (exprl[0], s,
-                 function (newA) { s.turtle.color.a = newA;
+                 function (newA) { s.turtle.color.a = (newA/99);
                                    return k (newA) })
 }
 
@@ -1733,6 +1734,7 @@ function _Box (exprl, s, k) {
   '<rect x="' + bl.x + '" y="' + bl.y + '" ' +
        ' width="' + width + '" height="' + height + '"' +
        ' fill="' + s.turtle.fillColor.toStringNoAlpha() + '"' +
+       ' fill-opacity="' + s.turtle.color.a.toFixed(2) + '"' +
        ' transform="rotate(' + (-s.turtle.heading.degrees()) + ',' + 
                                s.turtle.pos.x + ',' + s.turtle.pos.y + ')"'
           if (s.turtle.penIsDown) {
