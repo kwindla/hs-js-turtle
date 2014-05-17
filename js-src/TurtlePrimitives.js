@@ -4,7 +4,7 @@ exports.Turtle = Turtle
 
 
 var st = require ('./SymbolTable')
-
+var Color = require ('./Color')
 
 var TurtleGlobals = {
   // for functions defined here, "this" will be the current
@@ -21,11 +21,16 @@ var TurtleGlobals = {
 
   , A: st.BoundBuiltin (1, _Alpha)
   , C: st.BoundBuiltin (3, _Color)
+  , D: st.BoundBuiltin (1, _IndexedColor)
+  , I: st.BoundBuiltin (3, _FillColor)
+  , J: st.BoundBuiltin (1, _IndexedFillColor)
 
   , '^': st.BoundBuiltin (0, _PenToggle)
   , U: st.BoundBuiltin (0, _PenUp)
   , N: st.BoundBuiltin (0, _PenDown)
   , K: st.BoundBuiltin (1, _StrokeWidth)
+
+  , X: st.BoundBuiltin (2, _Box)
 }
 
 
@@ -139,6 +144,34 @@ function _Color (exprl, s, k) {
     })
 }
 
+function _IndexedColor (exprl, s, k) {
+  return s.eval (exprl[0], s, function (idx)
+                 { s.turtle.color.setFromIndex (idx)
+                   return k (idx) })
+}
+
+function _FillColor (exprl, s, k) {
+  return s.eval (
+    exprl[0], s,
+    function (r)
+    { return s.eval (
+      exprl[1], s,
+      function (g)
+      { return s.eval (
+        exprl[2], s,
+        function (b)
+        { s.turtle.fillColor.setRGB (r, g, b)
+          return k (0.299*r + 0.587*g + 0.114*b) })
+      })
+    })
+}
+
+function _IndexedFillColor (exprl, s, k) {
+  return s.eval (exprl[0], s, function (idx)
+                 { s.turtle.fillColor.setFromIndex (idx)
+                   return k (idx) })
+}
+
 function _PenToggle (exprl, s, k) {
   return k (s.turtle.penIsDown = !s.turtle.penIsDown)
   
@@ -157,6 +190,34 @@ function _StrokeWidth (exprl, s, k) {
     exprl[0], s,
     function (width) { return k (s.turtle.strokeWidth = width) })
 }
+
+function _Box (exprl, s, k) {
+  return s.eval (
+    exprl[0], s,
+    function (width) {
+      return s.eval (
+        exprl[1], s,
+        function (height) {
+          var bl = s.turtle.pos.copy().plus(Point(-(width/2), -(height/2)))
+          var str = ""
+          str +=
+  '<rect x="' + bl.x + '" y="' + bl.y + '" ' +
+       ' width="' + width + '" height="' + height + '"' +
+       ' fill="' + s.turtle.fillColor.toStringNoAlpha() + '"' +
+       ' transform="rotate(' + (-s.turtle.heading.degrees()) + ',' + 
+                               s.turtle.pos.x + ',' + s.turtle.pos.y + ')"'
+          if (s.turtle.penIsDown) {
+            str += ' style="stroke:' + s.turtle.color.toString() +
+                   ';stroke-width:' + s.turtle.strokeWidth + '"'
+
+          }
+          str += (' />')
+          s.svg.push (str)
+          return k (width * height)
+        });
+    });  
+}
+
 
 function lineFromTo (p0, p1, evalState) {
   evalState.svg.push (
@@ -177,6 +238,7 @@ function Turtle (heading, pos, color, strokeWidth, penState) {
     { _heading: 0.0,
       pos:       Point (50, 50),
       color:     Color (0, 0, 0, 99),
+      fillColor: Color (50, 50, 50, 99),
       strokeWidth: 1.0,
       penIsDown: true,
       heading: {
@@ -206,22 +268,6 @@ function Point (x, y) {
   if (x) { p.x = x }
   if (y) { p.y = y }
   return p
-}
-
-function Color (r, g, b, a) {
-  var d = 255/99
-  c = Object.create ( 
-    { r: 0, g: 0, b: 0, a: 0
-      , setRGB: function (R,G,B) { this.r=R*d; this.g=G*d; this.b=B*d }
-      , toString: function () 
-          { return 'rgba(' + [this.r, this.g, this.b, this.a].join(',') + ')' }
-    } 
-  )
-  if (r) { c.r = r*d }
-  if (g) { c.g = g*d }
-  if (b) { c.b = b*d }
-  if (a) { c.a = a/99}
-  return c
 }
 
 

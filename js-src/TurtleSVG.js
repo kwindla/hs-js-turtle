@@ -50,7 +50,7 @@ function SVGBodyFromProgramState (s) {
 }
 
 function SVGElementFromProgramState (s, width, height) {
-  w = width || 99; h = height || 99
+  w = width || 100; h = height || 100
   return '<svg width="' + w + '" height="' + h + 
             '" viewbox="0 0 100 100' + '">' +
          SVGBodyFromProgramState (s) +

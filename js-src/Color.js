@@ -1,6 +1,15 @@
 
-var namedColorsLookupTable
+// Quick and dirty Color class for use by TurtlePrimitives.js
+// Import as:
+//
+//   var Color = require ('./Color')
+//
+// Expects 1-99 values to be passed as arguments to constructor rather
+// than 0-255 (to save characters in graphics programs). Indexed
+// colors list is from the svg documentation.
+// http://www.w3.org/TR/SVG/types.html#ColorKeywords
 
+var namedColorsLookupTable
 
 function Color (r, g, b, a) {
   var d = 255/99
@@ -15,9 +24,9 @@ function Color (r, g, b, a) {
       , toStringNoAlpha: function () {
           return 'rgb(' + [this.r, this.g, this.b].
                     map(function(c){return Math.round(c)}).join(',') + ')' }
-      , setFromIndex: function (idx) { 
-
-return namedColorsLookupTable[idx][1](this) }
+      , setFromIndex: function (idx) {
+        return namedColorsLookupTable[idx][1](this)
+      }
     }
   )
   if (r) { c.r = r*d }
@@ -184,4 +193,3 @@ namedColorsLookupTable =
 
 
 module.exports = Color
-module.exports.lookup = function (idx) { return namedColorsLookupTable[idx] }
