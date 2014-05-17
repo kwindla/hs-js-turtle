@@ -200,7 +200,7 @@ function Store () {
 
 module.exports = Store
 
-},{"./lib/TurtleSVG":11}],3:[function(require,module,exports){
+},{"./lib/TurtleSVG":12}],3:[function(require,module,exports){
 
 // 
 // All the machinery below is just a way to give us event creation
@@ -494,7 +494,7 @@ var Views      = require ('./Views.js')
 
 var examplePgmStrings = [
   "^B(-35)0^d=(2/13)i=0#27{K((i\\4)+1)*(4/19)#180{FdR2}d=d*(11/10)^B(-d)0^i=i+1}"
-  ,  "#10{#3{F45R120}R36}"
+  ,  "K(1/5) a=(17/10) #19{X5(a*5)R5a=a+1}"
   , "^B(-39)(-30)K(2/3)^#24{F60R75}"
   , "#8{R45#4{#90{F(3/5)R2}R90}}"
   , "K(1/5)#36{R10#8{F18L45}}"
@@ -533,6 +533,203 @@ dispatcher.SetPgmTextAndRunPgm (examplePgmStrings[0])
 console.log ("ready steady") 
 
 },{"./Dispatcher.js":1,"./Store.js":2,"./UserEvents.js":3,"./Views.js":4}],6:[function(require,module,exports){
+
+// Quick and dirty Color class for use by TurtlePrimitives.js
+// Import as:
+//
+//   var Color = require ('./Color')
+//
+// Expects 1-99 values to be passed as arguments to constructor rather
+// than 0-255 (to save characters in graphics programs). Indexed
+// colors list is from the svg documentation.
+// http://www.w3.org/TR/SVG/types.html#ColorKeywords
+
+var namedColorsLookupTable
+
+function Color (r, g, b, a) {
+  var d = 255/99
+
+  c = Object.create ( 
+    { r: 0, g: 0, b: 0, a: 0
+      , setRGB: function (R,G,B) { this.r=R*d; this.g=G*d; this.b=B*d }
+      , setRGBFromBytes: function (R,G,B) { this.r=R; this.g=G, this.b=B }
+      , toString: function () {
+          return 'rgba(' + [this.r, this.g, this.b, this.a].
+                    map(function(c){return Math.round(c)}).join(',') + ')' }
+      , toStringNoAlpha: function () {
+          return 'rgb(' + [this.r, this.g, this.b].
+                    map(function(c){return Math.round(c)}).join(',') + ')' }
+      , setFromIndex: function (idx) {
+        return namedColorsLookupTable[idx][1](this)
+      }
+    }
+  )
+  if (r) { c.r = r*d }
+  if (g) { c.g = g*d }
+  if (b) { c.b = b*d }
+  if (a) { c.a = a/99}
+
+  return c
+}
+
+
+var rgb = function (R, G, B) {
+  return function (color) {color.setRGBFromBytes(R,G,B)}
+}
+
+namedColorsLookupTable =
+  [ ['aliceblue', rgb(240, 248, 255)]
+  , ['antiquewhite', rgb(250, 235, 215)]
+  , ['aqua', rgb( 0, 255, 255)]
+  , ['aquamarine', rgb(127, 255, 212)]
+  , ['azure', rgb(240, 255, 255)]
+  , ['beige', rgb(245, 245, 220)]
+  , ['bisque', rgb(255, 228, 196)]
+  , ['black', rgb( 0, 0, 0)]
+  , ['blanchedalmond', rgb(255, 235, 205)]
+  , ['blue', rgb( 0, 0, 255)]
+  , ['blueviolet', rgb(138, 43, 226)]
+  , ['brown', rgb(165, 42, 42)]
+  , ['burlywood', rgb(222, 184, 135)]
+  , ['cadetblue', rgb( 95, 158, 160)]
+  , ['chartreuse', rgb(127, 255, 0)]
+  , ['chocolate', rgb(210, 105, 30)]
+  , ['coral', rgb(255, 127, 80)]
+  , ['cornflowerblue', rgb(100, 149, 237)]
+  , ['cornsilk', rgb(255, 248, 220)]
+  , ['crimson', rgb(220, 20, 60)]
+  , ['cyan', rgb( 0, 255, 255)]
+  , ['darkblue', rgb( 0, 0, 139)]
+  , ['darkcyan', rgb( 0, 139, 139)]
+  , ['darkgoldenrod', rgb(184, 134, 11)]
+  , ['darkgray', rgb(169, 169, 169)]
+  , ['darkgreen', rgb( 0, 100, 0)]
+  , ['darkgrey', rgb(169, 169, 169)]
+  , ['darkkhaki', rgb(189, 183, 107)]
+  , ['darkmagenta', rgb(139, 0, 139)]
+  , ['darkolivegreen', rgb( 85, 107, 47)]
+  , ['darkorange', rgb(255, 140, 0)]
+  , ['darkorchid', rgb(153, 50, 204)]
+  , ['darkred', rgb(139, 0, 0)]
+  , ['darksalmon', rgb(233, 150, 122)]
+  , ['darkseagreen', rgb(143, 188, 143)]
+  , ['darkslateblue', rgb( 72, 61, 139)]
+  , ['darkslategray', rgb( 47, 79, 79)]
+  , ['darkslategrey', rgb( 47, 79, 79)]
+  , ['darkturquoise', rgb( 0, 206, 209)]
+  , ['darkviolet', rgb(148, 0, 211)]
+  , ['deeppink', rgb(255, 20, 147)]
+  , ['deepskyblue', rgb( 0, 191, 255)]
+  , ['dimgray', rgb(105, 105, 105)]
+  , ['dimgrey', rgb(105, 105, 105)]
+  , ['dodgerblue', rgb( 30, 144, 255)]
+  , ['firebrick', rgb(178, 34, 34)]
+  , ['floralwhite', rgb(255, 250, 240)]
+  , ['forestgreen', rgb( 34, 139, 34)]
+  , ['fuchsia', rgb(255, 0, 255)]
+  , ['gainsboro', rgb(220, 220, 220)]
+  , ['ghostwhite', rgb(248, 248, 255)]
+  , ['gold', rgb(255, 215, 0)]
+  , ['goldenrod', rgb(218, 165, 32)]
+  , ['grey', rgb(128, 128, 128)]
+  , ['green', rgb( 0, 128, 0)]
+  , ['greenyellow', rgb(173, 255, 47)]
+  , ['honeydew', rgb(240, 255, 240)]
+  , ['hotpink', rgb(255, 105, 180)]
+  , ['indianred', rgb(205, 92, 92)]
+  , ['indigo', rgb( 75, 0, 130)]
+  , ['ivory', rgb(255, 255, 240)]
+  , ['khaki', rgb(240, 230, 140)]
+  , ['lavender', rgb(230, 230, 250)]
+  , ['lavenderblush', rgb(255, 240, 245)]
+  , ['lawngreen', rgb(124, 252, 0)]
+  , ['lemonchiffon', rgb(255, 250, 205)]
+  , ['lightblue', rgb(173, 216, 230)]
+  , ['lightcoral', rgb(240, 128, 128)]
+  , ['lightcyan', rgb(224, 255, 255)]
+  , ['lightgoldenrodyellow', rgb(250, 250, 210)]
+  , ['lightgray', rgb(211, 211, 211)]
+  , ['lightgreen', rgb(144, 238, 144)]
+  , ['lightgrey', rgb(211, 211, 211)]
+  , ['lightpink', rgb(255, 182, 193)]
+  , ['lightsalmon', rgb(255, 160, 122)]
+  , ['lightseagreen', rgb( 32, 178, 170)]
+  , ['lightskyblue', rgb(135, 206, 250)]
+  , ['lightslategray', rgb(119, 136, 153)]
+  , ['lightslategrey', rgb(119, 136, 153)]
+  , ['lightsteelblue', rgb(176, 196, 222)]
+  , ['lightyellow', rgb(255, 255, 224)]
+  , ['lime', rgb( 0, 255, 0)]
+  , ['limegreen', rgb( 50, 205, 50)]
+  , ['linen', rgb(250, 240, 230)]
+  , ['magenta', rgb(255, 0, 255)]
+  , ['maroon', rgb(128, 0, 0)]
+  , ['mediumaquamarine', rgb(102, 205, 170)]
+  , ['mediumblue', rgb( 0, 0, 205)]
+  , ['mediumorchid', rgb(186, 85, 211)]
+  , ['mediumpurple', rgb(147, 112, 219)]
+  , ['mediumseagreen', rgb( 60, 179, 113)]
+  , ['mediumslateblue', rgb(123, 104, 238)]
+  , ['mediumspringgreen', rgb( 0, 250, 154)]
+  , ['mediumturquoise', rgb( 72, 209, 204)]
+  , ['mediumvioletred', rgb(199, 21, 133)]
+  , ['midnightblue', rgb( 25, 25, 112)]
+  , ['mintcream', rgb(245, 255, 250)]
+  , ['mistyrose', rgb(255, 228, 225)]
+  , ['moccasin', rgb(255, 228, 181)]
+  , ['navajowhite', rgb(255, 222, 173)]
+  , ['navy', rgb( 0, 0, 128)]
+  , ['oldlace', rgb(253, 245, 230)]
+  , ['olive', rgb(128, 128, 0)]
+  , ['olivedrab', rgb(107, 142, 35)]
+  , ['orange', rgb(255, 165, 0)]
+  , ['orangered', rgb(255, 69, 0)]
+  , ['orchid', rgb(218, 112, 214)]
+  , ['palegoldenrod', rgb(238, 232, 170)]
+  , ['palegreen', rgb(152, 251, 152)]
+  , ['paleturquoise', rgb(175, 238, 238)]
+  , ['palevioletred', rgb(219, 112, 147)]
+  , ['papayawhip', rgb(255, 239, 213)]
+  , ['peachpuff', rgb(255, 218, 185)]
+  , ['peru', rgb(205, 133, 63)]
+  , ['pink', rgb(255, 192, 203)]
+  , ['plum', rgb(221, 160, 221)]
+  , ['powderblue', rgb(176, 224, 230)]
+  , ['purple', rgb(128, 0, 128)]
+  , ['red', rgb(255, 0, 0)]
+  , ['rosybrown', rgb(188, 143, 143)]
+  , ['royalblue', rgb( 65, 105, 225)]
+  , ['saddlebrown', rgb(139, 69, 19)]
+  , ['salmon', rgb(250, 128, 114)]
+  , ['sandybrown', rgb(244, 164, 96)]
+  , ['seagreen', rgb( 46, 139, 87)]
+  , ['seashell', rgb(255, 245, 238)]
+  , ['sienna', rgb(160, 82, 45)]
+  , ['silver', rgb(192, 192, 192)]
+  , ['skyblue', rgb(135, 206, 235)]
+  , ['slateblue', rgb(106, 90, 205)]
+  , ['slategray', rgb(112, 128, 144)]
+  , ['slategrey', rgb(112, 128, 144)]
+  , ['snow', rgb(255, 250, 250)]
+  , ['springgreen', rgb( 0, 255, 127)]
+  , ['steelblue', rgb( 70, 130, 180)]
+  , ['tan', rgb(210, 180, 140)]
+  , ['teal', rgb( 0, 128, 128)]
+  , ['thistle', rgb(216, 191, 216)]
+  , ['tomato', rgb(255, 99, 71)]
+  , ['turquoise', rgb( 64, 224, 208)]
+  , ['violet', rgb(238, 130, 238)]
+  , ['wheat', rgb(245, 222, 179)]
+  , ['white', rgb(255, 255, 255)]
+  , ['whitesmoke', rgb(245, 245, 245)]
+  , ['yellow', rgb(255, 255, 0)]
+  , ['yellowgreen', rgb(154, 205, 50)]
+  ]
+
+
+module.exports = Color
+
+},{}],7:[function(require,module,exports){
 
 var _st = require ('./SymbolTable')
 
@@ -802,7 +999,7 @@ function dbg (s) { console.log(s) }
 
 
 
-},{"./SymbolTable":8}],7:[function(require,module,exports){
+},{"./SymbolTable":9}],8:[function(require,module,exports){
 
 exports.parse = parse
 
@@ -1099,7 +1296,7 @@ function Repeat (ntimes, expr) {
     } } })
 }
 
-},{"./TurtlePrimitives":10}],8:[function(require,module,exports){
+},{"./TurtlePrimitives":11}],9:[function(require,module,exports){
 
 exports.BaseSymbolTable = BaseSymbolTable
 exports.BoundValue = BoundValue
@@ -1194,7 +1391,7 @@ function _derivedTable () {
 
 function dbg (s) { console.log(s) }
 
-},{"util":15}],9:[function(require,module,exports){
+},{"util":16}],10:[function(require,module,exports){
 
 exports.tokenize = tokenize
 
@@ -1329,14 +1526,14 @@ function TokenRepeat (c) {
  
 
 
-},{}],10:[function(require,module,exports){
+},{}],11:[function(require,module,exports){
 
 exports.InitialSymbolTable = InitialSymbolTable
 exports.Turtle = Turtle
 
 
 var st = require ('./SymbolTable')
-
+var Color = require ('./Color')
 
 var TurtleGlobals = {
   // for functions defined here, "this" will be the current
@@ -1353,11 +1550,16 @@ var TurtleGlobals = {
 
   , A: st.BoundBuiltin (1, _Alpha)
   , C: st.BoundBuiltin (3, _Color)
+  , D: st.BoundBuiltin (1, _IndexedColor)
+  , I: st.BoundBuiltin (3, _FillColor)
+  , J: st.BoundBuiltin (1, _IndexedFillColor)
 
   , '^': st.BoundBuiltin (0, _PenToggle)
   , U: st.BoundBuiltin (0, _PenUp)
   , N: st.BoundBuiltin (0, _PenDown)
   , K: st.BoundBuiltin (1, _StrokeWidth)
+
+  , X: st.BoundBuiltin (2, _Box)
 }
 
 
@@ -1471,6 +1673,34 @@ function _Color (exprl, s, k) {
     })
 }
 
+function _IndexedColor (exprl, s, k) {
+  return s.eval (exprl[0], s, function (idx)
+                 { s.turtle.color.setFromIndex (idx)
+                   return k (idx) })
+}
+
+function _FillColor (exprl, s, k) {
+  return s.eval (
+    exprl[0], s,
+    function (r)
+    { return s.eval (
+      exprl[1], s,
+      function (g)
+      { return s.eval (
+        exprl[2], s,
+        function (b)
+        { s.turtle.fillColor.setRGB (r, g, b)
+          return k (0.299*r + 0.587*g + 0.114*b) })
+      })
+    })
+}
+
+function _IndexedFillColor (exprl, s, k) {
+  return s.eval (exprl[0], s, function (idx)
+                 { s.turtle.fillColor.setFromIndex (idx)
+                   return k (idx) })
+}
+
 function _PenToggle (exprl, s, k) {
   return k (s.turtle.penIsDown = !s.turtle.penIsDown)
   
@@ -1489,6 +1719,34 @@ function _StrokeWidth (exprl, s, k) {
     exprl[0], s,
     function (width) { return k (s.turtle.strokeWidth = width) })
 }
+
+function _Box (exprl, s, k) {
+  return s.eval (
+    exprl[0], s,
+    function (width) {
+      return s.eval (
+        exprl[1], s,
+        function (height) {
+          var bl = s.turtle.pos.copy().plus(Point(-(width/2), -(height/2)))
+          var str = ""
+          str +=
+  '<rect x="' + bl.x + '" y="' + bl.y + '" ' +
+       ' width="' + width + '" height="' + height + '"' +
+       ' fill="' + s.turtle.fillColor.toStringNoAlpha() + '"' +
+       ' transform="rotate(' + (-s.turtle.heading.degrees()) + ',' + 
+                               s.turtle.pos.x + ',' + s.turtle.pos.y + ')"'
+          if (s.turtle.penIsDown) {
+            str += ' style="stroke:' + s.turtle.color.toString() +
+                   ';stroke-width:' + s.turtle.strokeWidth + '"'
+
+          }
+          str += (' />')
+          s.svg.push (str)
+          return k (width * height)
+        });
+    });  
+}
+
 
 function lineFromTo (p0, p1, evalState) {
   evalState.svg.push (
@@ -1509,6 +1767,7 @@ function Turtle (heading, pos, color, strokeWidth, penState) {
     { _heading: 0.0,
       pos:       Point (50, 50),
       color:     Color (0, 0, 0, 99),
+      fillColor: Color (50, 50, 50, 99),
       strokeWidth: 1.0,
       penIsDown: true,
       heading: {
@@ -1540,26 +1799,10 @@ function Point (x, y) {
   return p
 }
 
-function Color (r, g, b, a) {
-  var d = 255/99
-  c = Object.create ( 
-    { r: 0, g: 0, b: 0, a: 0
-      , setRGB: function (R,G,B) { this.r=R*d; this.g=G*d; this.b=B*d }
-      , toString: function () 
-          { return 'rgba(' + [this.r, this.g, this.b, this.a].join(',') + ')' }
-    } 
-  )
-  if (r) { c.r = r*d }
-  if (g) { c.g = g*d }
-  if (b) { c.b = b*d }
-  if (a) { c.a = a/99}
-  return c
-}
-
 
 function dbg (s) { console.log(s) }
 
-},{"./SymbolTable":8}],11:[function(require,module,exports){
+},{"./Color":6,"./SymbolTable":9}],12:[function(require,module,exports){
 
 exports.startProgramRun      = startProgramRun
 exports.runProgram           = runProgram
@@ -1612,14 +1855,14 @@ function SVGBodyFromProgramState (s) {
 }
 
 function SVGElementFromProgramState (s, width, height) {
-  w = width || 320; h = height || 320
+  w = width || 100; h = height || 100
   return '<svg width="' + w + '" height="' + h + 
             '" viewbox="0 0 100 100' + '">' +
          SVGBodyFromProgramState (s) +
          '</svg>'
 }
 
-},{"./Evaluator":6,"./Parser":7,"./Tokenizer":9,"./TurtlePrimitives":10}],12:[function(require,module,exports){
+},{"./Evaluator":7,"./Parser":8,"./Tokenizer":10,"./TurtlePrimitives":11}],13:[function(require,module,exports){
 if (typeof Object.create === 'function') {
   // implementation from standard node.js 'util' module
   module.exports = function inherits(ctor, superCtor) {
@@ -1644,7 +1887,7 @@ if (typeof Object.create === 'function') {
   }
 }
 
-},{}],13:[function(require,module,exports){
+},{}],14:[function(require,module,exports){
 // shim for using process in browser
 
 var process = module.exports = {};
@@ -1709,14 +1952,14 @@ process.chdir = function (dir) {
     throw new Error('process.chdir is not supported');
 };
 
-},{}],14:[function(require,module,exports){
+},{}],15:[function(require,module,exports){
 module.exports = function isBuffer(arg) {
   return arg && typeof arg === 'object'
     && typeof arg.copy === 'function'
     && typeof arg.fill === 'function'
     && typeof arg.readUInt8 === 'function';
 }
-},{}],15:[function(require,module,exports){
+},{}],16:[function(require,module,exports){
 (function (process,global){
 // Copyright Joyent, Inc. and other Node contributors.
 //
@@ -2306,4 +2549,4 @@ function hasOwnProperty(obj, prop) {
 }
 
 }).call(this,require("K/m7xv"),typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{"./support/isBuffer":14,"K/m7xv":13,"inherits":12}]},{},[5])
+},{"./support/isBuffer":15,"K/m7xv":14,"inherits":13}]},{},[5])
