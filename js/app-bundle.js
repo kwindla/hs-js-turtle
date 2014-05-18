@@ -371,9 +371,11 @@ ProgramGraphic = React.createClass ({displayName: 'ProgramGraphic',
     // css.)
     var el = this.getDOMNode().parentNode
     var width = window.getComputedStyle(el).getPropertyValue('width')
+    var prmel = document.getElementById('eval-progress-meter')
     el.style.width = width
     el.style.height = width
-    console.log ("did mount", width)
+    if (prmel) { prmel.style.lineHeight = width }
+    console.log ("did mount", width, prmel, width )
   },
 
   render: function() {
@@ -393,8 +395,6 @@ ProgramGraphic = React.createClass ({displayName: 'ProgramGraphic',
 // Container and data flow for the combined input text area, character
 // count, run button, and svg graphical display.
 //
-// FIX: need to add back in the scroll-into-view stuff.
-//
 EvalAndDisplayWidget = exports.EvalAndDisplayWidget =
 React.createClass ({displayName: 'EvalAndDisplayWidget',
   getInitialState: function() {
@@ -402,6 +402,12 @@ React.createClass ({displayName: 'EvalAndDisplayWidget',
   },
 
   handleStateChange: function (newStates) {
+    var el
+    if ((this.state.pgmEvalProgress === -1) &&
+        (newStates.pgmEvalProgress !== -1)) {
+      el = document.getElementById('graphic-container')
+      if (el) { el.scrollIntoView() }
+    }
     this.setState (newStates)
   },
 

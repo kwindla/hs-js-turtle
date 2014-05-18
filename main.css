@@ -74,6 +74,7 @@ h1 {
 }
 
 #eval-progress-meter {
+  position: relative;
   font-family: 'Inconsolata', monospace;
   height: 100%;
   margin: auto;
