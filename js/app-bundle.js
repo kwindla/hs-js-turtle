@@ -71,7 +71,11 @@ var svg = require ('./lib/TurtleSVG')
 function Store () {
   var state = { pgmText: ""
               , pgmSVG: ""
-              , pgmEvalProgress: -1
+              , pgmEvalProgress: 0 // set to zero here as a special
+                                   // initial value, so that our first
+                                   // program run doesn't cause the
+                                   // page to scroll. this is a little
+                                   // bit of a kludge.
               }
 
   var public = {}       // closure-riffic containerization
