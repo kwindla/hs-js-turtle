@@ -107,9 +107,14 @@ comparison exprt = do
       pcSetTokList ts
       exprt' <- expression
       return $ BinaryOp (BinaryFunc "<" ltFunc) exprt exprt'
+    (TokenOperator Equals:ts) -> do
+      pcSetTokList ts
+      exprt' <- expression
+      return $ BinaryOp (BinaryFunc "=" eqFunc) exprt exprt'
     otherwise -> return exprt
   where gtFunc l r = if (l > r) then 1.0 else 0.0
         ltFunc l r = if (l < r) then 1.0 else 0.0
+        eqFunc l r = if (l == r) then 1.0 else 0.0
 
 
 factor :: State ParseState ExprTree

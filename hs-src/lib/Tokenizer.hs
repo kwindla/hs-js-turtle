@@ -32,6 +32,7 @@ tokenize (c : cs)
   | c == ')'          = TokenRightParen : tokenize cs
   | c == '{'          = TokenLeftBrace  : tokenize cs
   | c == '}'          = TokenRightBrace : tokenize cs
+  | c == '~'          = TokenOperator Equals : tokenize cs
   | c == '+'          = TokenOperator Plus  : tokenize cs
   | c == '-'          = TokenOperator Minus : tokenize cs
   | c == '*'          = TokenOperator Times : tokenize cs
