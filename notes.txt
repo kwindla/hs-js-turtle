@@ -74,3 +74,7 @@ sudo npm install -g n
 sudo /usr/local/share/npm/bin/n stable
 sudo n stable
 
+sudo npm install browserify -g
+sudo npm install watchify -g
+sudo npm install react-tools -g
+sudo ln -s /usr/local/share/npm/bin/jsx /usr/local/bin/
