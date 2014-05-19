@@ -22,7 +22,7 @@ var TokenCases = [
   [ '&', TokenDefun ],
   [ '?', TokenIf ],
   [ '#', TokenRepeat ],
-  [ /^[0-9]+/,   function (m) { return TokenNumber (+m[0]) } ]
+  [ /^[0-9]+(\.[0-9]+)?/,   function (m) { return TokenNumber (+m[0]) } ]
 ]
 
 
