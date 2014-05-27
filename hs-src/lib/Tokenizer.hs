@@ -42,7 +42,12 @@ tokenize (c : cs)
   | c == '&'          = TokenDefun            : tokenize cs
   | c == '?'          = TokenIf               : tokenize cs
   | c == '#'          = TokenRepeat           : tokenize cs
-  | isDigit c         = let (numstr, cs') = span isDigit (c:cs)
+  | isDigit c         = let (numstr, cs') = whileDigit (c:cs) ""
                         in TokenNumber (read numstr) : tokenize cs'
   | otherwise         = error $ "could not tokenize " ++ [c]
+  where whileDigit (c : cs) acc
+          | isDigit c                         = whileDigit cs (acc ++ [c])
+          | c == '.' && (not $ elem '.' acc)  = whileDigit cs (acc ++ [c])
+        whileDigit cs acc = (acc, cs)
+
 
