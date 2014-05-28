@@ -31,6 +31,7 @@ instance Eq UnaryFunc where
 instance Read UnaryFunc where
   readsPrec _ value = tryParse value [ ("(+)", UnaryFunc "+" undefined)
                                      , ("(-)", UnaryFunc "-" undefined)
+                                     , ("(!)", UnaryFunc "!" undefined)
                                      ]
 
 data BinaryFunc = BinaryFunc String (Double -> Double -> Double)
@@ -46,6 +47,7 @@ instance Read BinaryFunc where
                                      , ("(-)", BinaryFunc "-" undefined)
                                      , ("(*)", BinaryFunc "*" undefined) 
                                      , ("(/)", BinaryFunc "/" undefined)
+                                     , ("(\\)", BinaryFunc "\\" undefined)
                                      , ("(=)", BinaryFunc "=" undefined)
                                      , ("(>)", BinaryFunc ">" undefined)
                                      , ("(<)", BinaryFunc "<" undefined)

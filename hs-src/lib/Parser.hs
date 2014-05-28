@@ -20,13 +20,16 @@ import Control.Monad.State.Strict
 -- Term             -> Factor Term-Tail
 -- Term-Tail        -> * Factor Term-Tail |
 --                     / Factor Term-Tail |
+--                     \ Factor Term-Tail |
 --                     empty
 -- Factor           -> ( Expression )                     |
 --                     { Factor-Expression-List           |
 --                     ? Expression Expression Expression |
 --                     # Expression Expression            |
---                     [+-] Factor                        | 
+--                     [+-] Expression                    |
+--                     ! Expression                       |
 --                     Number                             |
+--                     , Expression                       |
 --                     Symbol
 -- Factor-Expression-List -> } |
 --                           Expression Factor-Expression-List
@@ -147,6 +150,10 @@ factor = do
      TokenRepeat -> liftM2 Repeat expression expression
      TokenOperator Plus -> expression
      TokenOperator Minus -> UnaryOp (UnaryFunc "-" negate) `liftM` expression
+     TokenOperator Not ->
+       UnaryOp (UnaryFunc "!" (\e -> if e==0.0 then 1.0 else 0.0))
+       `liftM` expression
+     TokenComma -> expression
 
 factorExpressionList :: State ParseState ExprList
 factorExpressionList = do
@@ -168,6 +175,11 @@ termTail exprt = do
       pcSetTokList ts
       exprt' <- term
       termTail $ (BinaryOp (BinaryFunc "/" (/)) exprt exprt')
+    (TokenOperator Mod:ts) -> do
+      pcSetTokList ts
+      exprt' <- term
+      termTail $ (BinaryOp (BinaryFunc "\\"
+                    (\l r -> l - (fromIntegral $ floor(l/r)) * r)) exprt exprt')
     otherwise -> return exprt
 
 

@@ -5,38 +5,48 @@
 //   var Color = require ('./Color')
 //
 // Expects 1-99 values to be passed as arguments to constructor rather
-// than 0-255 (to save characters in graphics programs). Indexed
-// colors list is from the svg documentation.
-// http://www.w3.org/TR/SVG/types.html#ColorKeywords
+// than 0-255 (to save characters in graphics programs).
 
-var colorsTable = require ('./colors')
+
+var colorsTable = require ('./colors.json')
+
 
 function Color (r, g, b, a) {
   var d = 255/99
 
   c = Object.create ( 
-    { r: 0, g: 0, b: 0, a: 0
-      , setRGB: function (R,G,B) { this.r=R*d; this.g=G*d; this.b=B*d }
-      , setRGBFromBytes: function (R,G,B) { this.r=R; this.g=G, this.b=B }
+    { _r: 0, _g: 0, _b: 0, _a: 1.0
+
+      , r: function (R) { if (R) { this._r=R*d; } return this._r }
+      , g: function (G) { if (G) { this._g=G*d; } return this._g }
+      , b: function (B) { if (B) { this._b=B*d; } return this._b }
+      , a: function (A) { if (A) { this._a=A/99; } return this._a }
+
+      , set: function (R,G,B,A) { this.r(R); this.g(G); this.b(B); this.a(A); 
+                                  return this }
+      , setRaw: function (R,G,B,A) { if (R) { this._r = R; }
+                                     if (G) { this._g = G; }
+                                     if (B) { this._b = B; }
+                                     if (A) { this._a = A; }
+                                     return this }
+
       , toString: function () {
-          return 'rgba(' + [this.r, this.g, this.b].
+          return 'rgba(' + [this._r, this._g, this._b].
                     map(function(c){return Math.round(c)}).join(',') + 
-                    ',' + this.a.toFixed(2) + ')' }
+                    ',' + this._a.toFixed(2) + ')' }
       , toStringNoAlpha: function () {
-          return 'rgb(' + [this.r, this.g, this.b].
+          return 'rgb(' + [this._r, this._g, this._b].
                     map(function(c){return Math.round(c)}).join(',') + ')' }
+
       , setFromIndex: function (idx) {        
         var c = colorsTable [idx]
         if (!c) { dbg ("no color found for", idx); return }
-        this.setRGBFromBytes (c.r, c.g, c.b)
+        this.setRaw (c.r, c.g, c.b)
       }
     }
   )
-  if (r) { c.r = r*d }
-  if (g) { c.g = g*d }
-  if (b) { c.b = b*d }
-  if (a) { c.a = a/99}
 
+  c.set (r, g, b, a)
   return c
 }
 

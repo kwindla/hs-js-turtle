@@ -9,6 +9,8 @@ module TestNodeProgram where
 import Data.Typeable
 import Test.Tasty.Providers
 import System.Process
+import Data.String.Utils
+
 
 data TestScript a =
   TS String String String String String a
@@ -44,5 +46,8 @@ runNodeScript cmd jsModulesDir jsModule function expression =
   readProcess cmd
     [ "-e"
     , "var _hsTest=require('" ++ jsModulesDir ++ "/" ++ jsModule ++ "'); " ++
-      "console.log(_hsTest." ++ function ++ "('" ++ expression ++ "'));"
+      "console.log(_hsTest." ++ function ++ "('" ++ 
+        -- ((unpack . bytes . sh . pack) expression)
+        (replace "\\" "\\\\" expression)
+      ++ "'));"
       ] []

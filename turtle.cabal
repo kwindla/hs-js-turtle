@@ -35,3 +35,4 @@ Test-suite test
                    , turtle
                    , tasty >= 0.8
                    , tasty-hunit >= 0.8
+                   , MissingH

@@ -14,8 +14,14 @@ tokenizerTests =
   , ("number char", "1a", [ TokenNumber 1.0, TokenSymbol 'a'])
     
   , ("multi-digit number", "12347", [ TokenNumber 12347.0 ])
+
+  , ("decimal number", "12347.62", [ TokenNumber 12347.62 ])
   
   , ("number number", "123 47", [ TokenNumber 123.0, TokenNumber 47.0 ])
+
+  , ("number , number", "123,47", [ TokenNumber 123.0,
+                                    TokenComma,
+                                    TokenNumber 47.0 ])
   
   , ("strip space", "     123 47  ", [ TokenNumber 123.0, TokenNumber 47.0 ])
       
@@ -44,5 +50,7 @@ tokenizerTests =
   , ("greater than", ">", [ TokenOperator GreaterThan ])
   , ("less than", "<", [ TokenOperator LessThan ])
   , ("equals", "~", [ TokenOperator Equals ])
+  , ("equals", "!", [ TokenOperator Not ])
+  , ("mod", "\\", [ TokenOperator Mod ])
   ]
 

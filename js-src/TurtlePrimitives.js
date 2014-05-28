@@ -9,28 +9,31 @@ var Color = require ('./Color')
 var TurtleGlobals = {
   // for functions defined here, "this" will be the current
   // EvalState. e is the passed-in exprl of args to the function
-    P: st.BoundValue (Math.PI)
-  , F: st.BoundBuiltin (1, _Forward)
+
+    F: st.BoundBuiltin (1, _Forward)
   , R: st.BoundBuiltin (1, _RotateRight)
   , L: st.BoundBuiltin (1, _RotateLeft)
 
   , M: st.BoundBuiltin (2, _MoveTo)
-  , B: st.BoundBuiltin (2, _MoveBy)
-  , T: st.BoundBuiltin (1, _TurnTo)
-  , H: st.BoundBuiltin (1, _TurnBy)
+  , N: st.BoundBuiltin (2, _MoveBy)
 
-  , A: st.BoundBuiltin (1, _Alpha)
-  , C: st.BoundBuiltin (3, _Color)
-  , D: st.BoundBuiltin (1, _IndexedColor)
-  , I: st.BoundBuiltin (3, _FillColor)
-  , J: st.BoundBuiltin (1, _IndexedFillColor)
+  , "'": st.BoundBuiltin (1, _TurnTo)
+  , '"': st.BoundBuiltin (1, _TurnBy)
+
+  , P: st.BoundValue (Math.PI)
+
+  , A: st.BoundBuiltin (1, _StrokeAlpha)
+  , B: st.BoundBuiltin (1, _FillAlpha)
+  , C: st.BoundBuiltin (1, _StrokeIndexedColor)
+  , D: st.BoundBuiltin (1, _FillIndexedColor)
+  , E: st.BoundBuiltin (1, _StrokeWidth)
+
+  , G: st.BoundBuiltin (3, _StrokeColor)
+  , H: st.BoundBuiltin (3, _FillColor)
 
   , '^': st.BoundBuiltin (0, _PenToggle)
-  , U: st.BoundBuiltin (0, _PenUp)
-  , N: st.BoundBuiltin (0, _PenDown)
-  , K: st.BoundBuiltin (1, _StrokeWidth)
 
-  , X: st.BoundBuiltin (2, _Box)
+  , T: st.BoundBuiltin (2, _Box)
 }
 
 
@@ -122,31 +125,37 @@ function _TurnTo (exprl, s, k) {
 
 }
 
-function _Alpha (exprl, s, k) {
+function _StrokeAlpha (exprl, s, k) {
   return s.eval (exprl[0], s,
-                 function (newA) { s.turtle.color.a = (newA/99);
-                                   return k (newA) })
+                 function (newA) { return k (s.turtle.strokeColor.a(newA)) })
+
 }
 
-function _Color (exprl, s, k) {
+function _FillAlpha (exprl, s, k) {
+  return s.eval (exprl[0], s,
+                 function (newA) { return k (s.turtle.fillColor.a(newA)) })
+
+}
+
+function _StrokeColor (exprl, s, k) {
   return s.eval (
     exprl[0], s,
     function (r)
     { return s.eval (
-      exprl[1], s,
-      function (g)
+      exprl[1], s, 
+      function (g) 
       { return s.eval (
         exprl[2], s,
         function (b)
-        { s.turtle.color.setRGB (r, g, b)
+        { s.turtle.strokeColor.set (r, g, b)
           return k (0.299*r + 0.587*g + 0.114*b) })
       })
     })
 }
 
-function _IndexedColor (exprl, s, k) {
+function _StrokeIndexedColor (exprl, s, k) {
   return s.eval (exprl[0], s, function (idx)
-                 { s.turtle.color.setFromIndex (idx)
+                 { s.turtle.strokeColor.setFromIndex (idx)
                    return k (idx) })
 }
 
@@ -160,13 +169,13 @@ function _FillColor (exprl, s, k) {
       { return s.eval (
         exprl[2], s,
         function (b)
-        { s.turtle.fillColor.setRGB (r, g, b)
+        { s.turtle.fillColor.set (r, g, b)
           return k (0.299*r + 0.587*g + 0.114*b) })
       })
     })
 }
 
-function _IndexedFillColor (exprl, s, k) {
+function _FillIndexedColor (exprl, s, k) {
   return s.eval (exprl[0], s, function (idx)
                  { s.turtle.fillColor.setFromIndex (idx)
                    return k (idx) })
@@ -204,11 +213,11 @@ function _Box (exprl, s, k) {
   '<rect x="' + bl.x + '" y="' + bl.y + '" ' +
        ' width="' + width + '" height="' + height + '"' +
        ' fill="' + s.turtle.fillColor.toStringNoAlpha() + '"' +
-       ' fill-opacity="' + s.turtle.color.a.toFixed(2) + '"' +
+       ' fill-opacity="' + s.turtle.fillColor.a().toFixed(2) + '"' +
        ' transform="rotate(' + (-s.turtle.heading.degrees()) + ',' + 
                                s.turtle.pos.x + ',' + s.turtle.pos.y + ')"'
           if (s.turtle.penIsDown) {
-            str += ' style="stroke:' + s.turtle.color.toString() +
+            str += ' style="stroke:' + s.turtle.strokeColor.toString() +
                    ';stroke-width:' + s.turtle.strokeWidth + '"'
 
           }
@@ -222,9 +231,9 @@ function _Box (exprl, s, k) {
 
 function lineFromTo (p0, p1, evalState) {
   evalState.svg.push (
-    '<line x1="' + p0.x + '" y1="' + p0.y +
-      '" x2="' + p1.x + '" y2="' + p1.y +
-      '" style="stroke:' + evalState.turtle.color.toString() + 
+    '<line x1="' + p0.x.toFixed(2) + '" y1="' + p0.y.toFixed(2) +
+      '" x2="' + p1.x.toFixed(2) + '" y2="' + p1.y.toFixed(2) +
+      '" style="stroke:' + evalState.turtle.strokeColor.toString() + 
       ';stroke-width:' + evalState.turtle.strokeWidth + 
       ';stroke-linecap:round' +
       '" />'
@@ -236,11 +245,11 @@ function lineFromTo (p0, p1, evalState) {
 
 function Turtle (heading, pos, color, strokeWidth, penState) {
   var t = Object.create (
-    { _heading: 0.0,
-      pos:       Point (50, 50),
-      color:     Color (0, 0, 0, 99),
-      fillColor: Color (50, 50, 50, 99),
-      strokeWidth: 1.0,
+    { _heading:        0.0,
+      pos:             Point (50, 50),
+      strokeColor:     Color (0, 0, 0, 99),
+      fillColor:       Color (50, 50, 50, 99),
+      strokeWidth:     1.0,
       penIsDown: true,
       heading: {
         set: function(degrees) { return t._heading=degrees },
@@ -254,7 +263,7 @@ function Turtle (heading, pos, color, strokeWidth, penState) {
     });
   if (heading) { t._heading = heading }
   if (pos) { t.pos = pos }
-  if (color) { t.color = color }
+  if (color) { t.strokeColor = color }
   return t
 }
 

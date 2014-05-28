@@ -4,7 +4,8 @@ exports.tokenize = tokenize
 
 var TokenCases = [
   // isSpace case is handled by a trim down in the driver function
-  [ /^[a-zA-Z\^\%]/, function (m) { return TokenSymbol (m[0]) } ],  
+  [ /^[a-zA-Z\^\%\'\"]/, function (m) { return TokenSymbol (m[0]) } ],
+  [ ',', TokenComma ],
   [ '=', TokenEquals ],
   [ '(', TokenLeftParen ],
   [ ')', TokenRightParen ],
@@ -91,6 +92,10 @@ function TokenSymbol (c) {
 function TokenNumber (num) {
   return Object.create (Token, { type: {value: 'TokenNumber'},
                                  v:    {value: num } })
+}
+
+function TokenComma (c) {
+  return Object.create (Token, { type: {value: 'TokenComma'} })
 }
 
 function TokenEquals (c) {

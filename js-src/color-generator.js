@@ -25,7 +25,9 @@ colors.forEach (function (color) {
   palette.push (interpl(0.25), interpl(0.5), interpl(0.75));
 });
 
-console.log (palette.map (function (c) { return d3.rgb(c) }));
+console.log (palette.map (function (c) { 
+  var color d3.rgb(c);
+}));
 
 //
 

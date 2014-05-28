@@ -54,6 +54,7 @@ t_tokenizer_js = th_testgroup_js "Tokenizer" "tokenize" "tokenizer"
 -- parser tests --
 
 parserTestGroups = [ ("basics", parserBasicsTests)
+                   , ("comma", parserCommaTests)
                    , ("precedence", parserPrecedenceTests) ]
 
 t_parser_hs = testGroup "parser" $

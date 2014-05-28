@@ -139,7 +139,10 @@ function _factor () {
     return UnaryOp ('-', function(v) { return -(v) }, this.expression())
   }
   if (t0.is('TokenOperator') && (t0.v == 'Not')) {
-    return UnaryOp ('!', function(v) { return !(v) }, this.expression())
+    return UnaryOp ('!', function(v) { return (!(v)+0) }, this.expression())
+  }
+  if (t0.is('TokenComma')) {
+    return this.expression()
   }
   throw ("incomplete pattern match in factor :) - " + t0.inspect())
 }

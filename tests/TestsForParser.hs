@@ -10,10 +10,12 @@ parserBasicsTests =
     
   , ("assignment", "a=a+1",
      [Assignment 'a' (BinaryOp (read "(+)") (Symbol 'a') (ConstantNumber 1.0))])
-      
+
+  , ("plus", "a+3", [BinaryOp (read "(+)") (Symbol 'a') (ConstantNumber 3.0)])
   , ("minus", "a-3", [BinaryOp (read "(-)") (Symbol 'a') (ConstantNumber 3.0)])
   , ("times", "a*3", [BinaryOp (read "(*)") (Symbol 'a') (ConstantNumber 3.0)])
   , ("div", "a/3", [BinaryOp (read "(/)") (Symbol 'a') (ConstantNumber 3.0)])
+  , ("mod", "a\\3", [BinaryOp (read "(\\)") (Symbol 'a') (ConstantNumber 3.0)])
 
   , ("equals", "a~3",
        [BinaryOp (read "(=)") (Symbol 'a') (ConstantNumber 3.0)])
@@ -25,6 +27,7 @@ parserBasicsTests =
       
   , ("unary -", "-1", [UnaryOp (read "(-)") (ConstantNumber 1.0)])
   , ("unary +", "+1", [(ConstantNumber 1.0)])
+
     
   , ("a{bc}", "a{bc}", [Symbol 'a', ExprTreeListNode [Symbol 'b',Symbol 'c']])
     
@@ -38,6 +41,18 @@ parserBasicsTests =
       
   , ("defun and funcall", "&S2a Sbc",
        [Defun 'S' 2 (Symbol 'a'), Funcall 2 'S' [Symbol 'b',Symbol 'c']])
+  ]
+
+parserCommaTests =
+  [ ("nums", "1,2,-3", [(ConstantNumber 1.0), (ConstantNumber 2.0),
+                        (UnaryOp (read "(-)") (ConstantNumber 3.0))])
+
+  , ("funcall", "&s2{a+b}s2,-(3+4)", 
+      [(Defun 's' 2
+        (ExprTreeListNode [(BinaryOp (read "(+)") (Symbol 'a') (Symbol 'b'))])),
+        (Funcall 2 's' [(ConstantNumber 2.0), (UnaryOp (read "(-)") 
+          (BinaryOp (read "(+)") (ConstantNumber 3.0) (ConstantNumber 4.0)))])])
+
   ]
 
 parserPrecedenceTests =

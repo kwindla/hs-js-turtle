@@ -1,4 +1,7 @@
 
+FIX: figure out the best way to make colors-generator spit out
+json-compatible data
+
 # command line to create the bundle we use for web embedding of the
 # turtle stuff ...
 
