@@ -503,12 +503,11 @@ var Views      = require ('./Views.js')
 
 
 var examplePgmStrings = [
-  "&s0{a=(17/10)#19{X5(a*5)R5a=a+1}T0}K(1/5)^M50 22^A25s^M50 50^A50s^M50 78^A99s"
-  , "K(1/8)i=-1^M5 5^#10{#10{Ji=i+1 X10 10^B10 0^}^B(-100)10^}"
+  "&s0{a=(17/10)#19{T5(a*5)R5a=a+1}'0}E(1/5)^M50,22^A25s^M50,50^A50s^M50,78^A99s"
+  , "E(1/8)i=-1^M5,5^#10{#10{Di=i+1 T10,10^N10 0^}^N(-100)10^}"
   , "#8{R45#4{#90{F(3/5)R2}R90}}"
-  , "K(1/5)#36{R10#8{F18L45}}"
-  , "^B(-35)0^d=(2/13)i=0#27{K((i\\4)+1)*(4/19)#180{FdR2}d=d*(11/10)^B(-d)0^i=i+1}"
-
+  , "E(1/5)#36{R10#8{F18L45}}"
+  , "^N(-50)0^d=(2/13)i=0#27{E((i\\4)+1)*(4/19)#180{FdR2}d=d*(11/10)^B(-d)0^i=i+1}"
 ]
 
 
@@ -551,38 +550,48 @@ console.log ("ready steady")
 //   var Color = require ('./Color')
 //
 // Expects 1-99 values to be passed as arguments to constructor rather
-// than 0-255 (to save characters in graphics programs). Indexed
-// colors list is from the svg documentation.
-// http://www.w3.org/TR/SVG/types.html#ColorKeywords
+// than 0-255 (to save characters in graphics programs).
 
-var colorsTable = require ('./colors')
+
+var colorsTable = require ('./colors.json')
+
 
 function Color (r, g, b, a) {
   var d = 255/99
 
   c = Object.create ( 
-    { r: 0, g: 0, b: 0, a: 0
-      , setRGB: function (R,G,B) { this.r=R*d; this.g=G*d; this.b=B*d }
-      , setRGBFromBytes: function (R,G,B) { this.r=R; this.g=G, this.b=B }
+    { _r: 0, _g: 0, _b: 0, _a: 1.0
+
+      , r: function (R) { if (R) { this._r=R*d; } return this._r }
+      , g: function (G) { if (G) { this._g=G*d; } return this._g }
+      , b: function (B) { if (B) { this._b=B*d; } return this._b }
+      , a: function (A) { if (A) { this._a=A/99; } return this._a }
+
+      , set: function (R,G,B,A) { this.r(R); this.g(G); this.b(B); this.a(A); 
+                                  return this }
+      , setRaw: function (R,G,B,A) { if (R) { this._r = R; }
+                                     if (G) { this._g = G; }
+                                     if (B) { this._b = B; }
+                                     if (A) { this._a = A; }
+                                     return this }
+
       , toString: function () {
-          return 'rgba(' + [this.r, this.g, this.b].
+          return 'rgba(' + [this._r, this._g, this._b].
                     map(function(c){return Math.round(c)}).join(',') + 
-                    ',' + this.a.toFixed(2) + ')' }
+                    ',' + this._a.toFixed(2) + ')' }
       , toStringNoAlpha: function () {
-          return 'rgb(' + [this.r, this.g, this.b].
+          return 'rgb(' + [this._r, this._g, this._b].
                     map(function(c){return Math.round(c)}).join(',') + ')' }
+
       , setFromIndex: function (idx) {        
         var c = colorsTable [idx]
         if (!c) { dbg ("no color found for", idx); return }
-        this.setRGBFromBytes (c.r, c.g, c.b)
+        this.setRaw (c.r, c.g, c.b)
       }
     }
   )
-  if (r) { c.r = r*d }
-  if (g) { c.g = g*d }
-  if (b) { c.b = b*d }
-  if (a) { c.a = a/99}
 
+  c.set (r, g, b, a)
   return c
 }
 
@@ -592,7 +601,7 @@ module.exports = Color
 
 function dbg () { console.log.apply(null, arguments) }
 
-},{"./colors":13}],7:[function(require,module,exports){
+},{"./colors.json":13}],7:[function(require,module,exports){
 
 var _st = require ('./SymbolTable')
 
@@ -1004,7 +1013,10 @@ function _factor () {
     return UnaryOp ('-', function(v) { return -(v) }, this.expression())
   }
   if (t0.is('TokenOperator') && (t0.v == 'Not')) {
-    return UnaryOp ('!', function(v) { return !(v) }, this.expression())
+    return UnaryOp ('!', function(v) { return (!(v)+0) }, this.expression())
+  }
+  if (t0.is('TokenComma')) {
+    return this.expression()
   }
   throw ("incomplete pattern match in factor :) - " + t0.inspect())
 }
@@ -1261,7 +1273,8 @@ exports.tokenize = tokenize
 
 var TokenCases = [
   // isSpace case is handled by a trim down in the driver function
-  [ /^[a-zA-Z\^\%]/, function (m) { return TokenSymbol (m[0]) } ],  
+  [ /^[a-zA-Z\^\%\'\"]/, function (m) { return TokenSymbol (m[0]) } ],
+  [ ',', TokenComma ],
   [ '=', TokenEquals ],
   [ '(', TokenLeftParen ],
   [ ')', TokenRightParen ],
@@ -1279,7 +1292,7 @@ var TokenCases = [
   [ '&', TokenDefun ],
   [ '?', TokenIf ],
   [ '#', TokenRepeat ],
-  [ /^[0-9]+/,   function (m) { return TokenNumber (+m[0]) } ]
+  [ /^[0-9]+(\.[0-9]+)?/,   function (m) { return TokenNumber (+m[0]) } ]
 ]
 
 
@@ -1350,6 +1363,10 @@ function TokenNumber (num) {
                                  v:    {value: num } })
 }
 
+function TokenComma (c) {
+  return Object.create (Token, { type: {value: 'TokenComma'} })
+}
+
 function TokenEquals (c) {
   return Object.create (Token, { type: {value: 'TokenEquals'} })
 }
@@ -1401,28 +1418,31 @@ var Color = require ('./Color')
 var TurtleGlobals = {
   // for functions defined here, "this" will be the current
   // EvalState. e is the passed-in exprl of args to the function
-    P: st.BoundValue (Math.PI)
-  , F: st.BoundBuiltin (1, _Forward)
+
+    F: st.BoundBuiltin (1, _Forward)
   , R: st.BoundBuiltin (1, _RotateRight)
   , L: st.BoundBuiltin (1, _RotateLeft)
 
   , M: st.BoundBuiltin (2, _MoveTo)
-  , B: st.BoundBuiltin (2, _MoveBy)
-  , T: st.BoundBuiltin (1, _TurnTo)
-  , H: st.BoundBuiltin (1, _TurnBy)
+  , N: st.BoundBuiltin (2, _MoveBy)
 
-  , A: st.BoundBuiltin (1, _Alpha)
-  , C: st.BoundBuiltin (3, _Color)
-  , D: st.BoundBuiltin (1, _IndexedColor)
-  , I: st.BoundBuiltin (3, _FillColor)
-  , J: st.BoundBuiltin (1, _IndexedFillColor)
+  , "'": st.BoundBuiltin (1, _TurnTo)
+  , '"': st.BoundBuiltin (1, _TurnBy)
+
+  , P: st.BoundValue (Math.PI)
+
+  , A: st.BoundBuiltin (1, _StrokeAlpha)
+  , B: st.BoundBuiltin (1, _FillAlpha)
+  , C: st.BoundBuiltin (1, _StrokeIndexedColor)
+  , D: st.BoundBuiltin (1, _FillIndexedColor)
+  , E: st.BoundBuiltin (1, _StrokeWidth)
+
+  , G: st.BoundBuiltin (3, _StrokeColor)
+  , H: st.BoundBuiltin (3, _FillColor)
 
   , '^': st.BoundBuiltin (0, _PenToggle)
-  , U: st.BoundBuiltin (0, _PenUp)
-  , N: st.BoundBuiltin (0, _PenDown)
-  , K: st.BoundBuiltin (1, _StrokeWidth)
 
-  , X: st.BoundBuiltin (2, _Box)
+  , T: st.BoundBuiltin (2, _Rectangle)
 }
 
 
@@ -1514,31 +1534,37 @@ function _TurnTo (exprl, s, k) {
 
 }
 
-function _Alpha (exprl, s, k) {
+function _StrokeAlpha (exprl, s, k) {
   return s.eval (exprl[0], s,
-                 function (newA) { s.turtle.color.a = (newA/99);
-                                   return k (newA) })
+                 function (newA) { return k (s.turtle.strokeColor.a(newA)) })
+
 }
 
-function _Color (exprl, s, k) {
+function _FillAlpha (exprl, s, k) {
+  return s.eval (exprl[0], s,
+                 function (newA) { return k (s.turtle.fillColor.a(newA)) })
+
+}
+
+function _StrokeColor (exprl, s, k) {
   return s.eval (
     exprl[0], s,
     function (r)
     { return s.eval (
-      exprl[1], s,
-      function (g)
+      exprl[1], s, 
+      function (g) 
       { return s.eval (
         exprl[2], s,
         function (b)
-        { s.turtle.color.setRGB (r, g, b)
+        { s.turtle.strokeColor.set (r, g, b)
           return k (0.299*r + 0.587*g + 0.114*b) })
       })
     })
 }
 
-function _IndexedColor (exprl, s, k) {
+function _StrokeIndexedColor (exprl, s, k) {
   return s.eval (exprl[0], s, function (idx)
-                 { s.turtle.color.setFromIndex (idx)
+                 { s.turtle.strokeColor.setFromIndex (idx)
                    return k (idx) })
 }
 
@@ -1552,13 +1578,13 @@ function _FillColor (exprl, s, k) {
       { return s.eval (
         exprl[2], s,
         function (b)
-        { s.turtle.fillColor.setRGB (r, g, b)
+        { s.turtle.fillColor.set (r, g, b)
           return k (0.299*r + 0.587*g + 0.114*b) })
       })
     })
 }
 
-function _IndexedFillColor (exprl, s, k) {
+function _FillIndexedColor (exprl, s, k) {
   return s.eval (exprl[0], s, function (idx)
                  { s.turtle.fillColor.setFromIndex (idx)
                    return k (idx) })
@@ -1583,7 +1609,7 @@ function _StrokeWidth (exprl, s, k) {
     function (width) { return k (s.turtle.strokeWidth = width) })
 }
 
-function _Box (exprl, s, k) {
+function _Rectangle (exprl, s, k) {
   return s.eval (
     exprl[0], s,
     function (width) {
@@ -1596,11 +1622,11 @@ function _Box (exprl, s, k) {
   '<rect x="' + bl.x + '" y="' + bl.y + '" ' +
        ' width="' + width + '" height="' + height + '"' +
        ' fill="' + s.turtle.fillColor.toStringNoAlpha() + '"' +
-       ' fill-opacity="' + s.turtle.color.a.toFixed(2) + '"' +
+       ' fill-opacity="' + s.turtle.fillColor.a().toFixed(2) + '"' +
        ' transform="rotate(' + (-s.turtle.heading.degrees()) + ',' + 
                                s.turtle.pos.x + ',' + s.turtle.pos.y + ')"'
           if (s.turtle.penIsDown) {
-            str += ' style="stroke:' + s.turtle.color.toString() +
+            str += ' style="stroke:' + s.turtle.strokeColor.toString() +
                    ';stroke-width:' + s.turtle.strokeWidth + '"'
 
           }
@@ -1614,9 +1640,9 @@ function _Box (exprl, s, k) {
 
 function lineFromTo (p0, p1, evalState) {
   evalState.svg.push (
-    '<line x1="' + p0.x + '" y1="' + p0.y +
-      '" x2="' + p1.x + '" y2="' + p1.y +
-      '" style="stroke:' + evalState.turtle.color.toString() + 
+    '<line x1="' + p0.x.toFixed(2) + '" y1="' + p0.y.toFixed(2) +
+      '" x2="' + p1.x.toFixed(2) + '" y2="' + p1.y.toFixed(2) +
+      '" style="stroke:' + evalState.turtle.strokeColor.toString() + 
       ';stroke-width:' + evalState.turtle.strokeWidth + 
       ';stroke-linecap:round' +
       '" />'
@@ -1628,11 +1654,11 @@ function lineFromTo (p0, p1, evalState) {
 
 function Turtle (heading, pos, color, strokeWidth, penState) {
   var t = Object.create (
-    { _heading: 0.0,
-      pos:       Point (50, 50),
-      color:     Color (0, 0, 0, 99),
-      fillColor: Color (50, 50, 50, 99),
-      strokeWidth: 1.0,
+    { _heading:        0.0,
+      pos:             Point (50, 50),
+      strokeColor:     Color (0, 0, 0, 99),
+      fillColor:       Color (50, 50, 50, 99),
+      strokeWidth:     1.0,
       penIsDown: true,
       heading: {
         set: function(degrees) { return t._heading=degrees },
@@ -1646,7 +1672,7 @@ function Turtle (heading, pos, color, strokeWidth, penState) {
     });
   if (heading) { t._heading = heading }
   if (pos) { t.pos = pos }
-  if (color) { t.color = color }
+  if (color) { t.strokeColor = color }
   return t
 }
 
@@ -1727,107 +1753,106 @@ function SVGElementFromProgramState (s, width, height) {
 }
 
 },{"./Evaluator":7,"./Parser":8,"./Tokenizer":10,"./TurtlePrimitives":11}],13:[function(require,module,exports){
-module.exports =
-[ { r: 0, g: 0, b: 0 },
-  { r: 21, g: 21, b: 21 },
-  { r: 34, g: 34, b: 34 },
-  { r: 48, g: 48, b: 48 },
-  { r: 63, g: 63, b: 63 },
-  { r: 78, g: 78, b: 78 },
-  { r: 94, g: 94, b: 94 },
-  { r: 111, g: 111, b: 111 },
-  { r: 127, g: 127, b: 127 },
-  { r: 145, g: 145, b: 145 },
-  { r: 162, g: 162, b: 162 },
-  { r: 180, g: 180, b: 180 },
-  { r: 198, g: 198, b: 198 },
-  { r: 217, g: 217, b: 217 },
-  { r: 236, g: 236, b: 236 },
-  { r: 255, g: 255, b: 255 },
-  { r: 255, g: 207, b: 191 },
-  { r: 255, g: 158, b: 129 },
-  { r: 255, g: 104, b: 70 },
-  { r: 255, g: 0, b: 0 },
-  { r: 187, g: 25, b: 9 },
-  { r: 122, g: 27, b: 12 },
-  { r: 63, g: 21, b: 8 },
-  { r: 255, g: 223, b: 197 },
-  { r: 255, g: 192, b: 140 },
-  { r: 255, g: 160, b: 82 },
-  { r: 255, g: 128, b: 0 },
-  { r: 186, g: 95, b: 15 },
-  { r: 121, g: 64, b: 18 },
-  { r: 62, g: 35, b: 14 },
-  { r: 255, g: 255, b: 207 },
-  { r: 255, g: 255, b: 158 },
-  { r: 255, g: 255, b: 103 },
-  { r: 255, g: 255, b: 0 },
-  { r: 185, g: 185, b: 25 },
-  { r: 120, g: 119, b: 27 },
-  { r: 61, g: 59, b: 21 },
-  { r: 231, g: 255, b: 206 },
-  { r: 203, g: 255, b: 155 },
-  { r: 170, g: 255, b: 101 },
-  { r: 128, g: 255, b: 0 },
-  { r: 97, g: 185, b: 23 },
-  { r: 67, g: 119, b: 26 },
-  { r: 38, g: 60, b: 20 },
-  { r: 219, g: 255, b: 205 },
-  { r: 177, g: 255, b: 154 },
-  { r: 125, g: 255, b: 100 },
-  { r: 0, g: 255, b: 0 },
-  { r: 34, g: 185, b: 23 },
-  { r: 36, g: 119, b: 25 },
-  { r: 27, g: 60, b: 20 },
-  { r: 216, g: 255, b: 224 },
-  { r: 173, g: 255, b: 192 },
-  { r: 121, g: 255, b: 160 },
-  { r: 0, g: 255, b: 128 },
-  { r: 33, g: 185, b: 95 },
-  { r: 34, g: 119, b: 64 },
-  { r: 26, g: 60, b: 35 },
-  { r: 219, g: 255, b: 255 },
-  { r: 178, g: 255, b: 255 },
-  { r: 126, g: 255, b: 255 },
-  { r: 0, g: 255, b: 255 },
-  { r: 35, g: 185, b: 185 },
-  { r: 36, g: 119, b: 119 },
-  { r: 27, g: 60, b: 59 },
-  { r: 215, g: 221, b: 255 },
-  { r: 171, g: 189, b: 255 },
-  { r: 118, g: 157, b: 255 },
-  { r: 0, g: 128, b: 255 },
-  { r: 31, g: 95, b: 185 },
-  { r: 33, g: 63, b: 119 },
-  { r: 25, g: 34, b: 60 },
-  { r: 220, g: 196, b: 255 },
-  { r: 179, g: 139, b: 255 },
-  { r: 126, g: 82, b: 255 },
-  { r: 0, g: 0, b: 255 },
-  { r: 35, g: 14, b: 185 },
-  { r: 36, g: 17, b: 120 },
-  { r: 27, g: 15, b: 60 },
-  { r: 232, g: 201, b: 255 },
-  { r: 204, g: 148, b: 255 },
-  { r: 171, g: 92, b: 255 },
-  { r: 128, g: 0, b: 255 },
-  { r: 97, g: 19, b: 185 },
-  { r: 67, g: 22, b: 119 },
-  { r: 38, g: 18, b: 60 },
-  { r: 255, g: 211, b: 255 },
-  { r: 255, g: 165, b: 255 },
-  { r: 255, g: 112, b: 255 },
-  { r: 255, g: 0, b: 255 },
-  { r: 185, g: 28, b: 185 },
-  { r: 120, g: 30, b: 119 },
-  { r: 61, g: 23, b: 60 },
-  { r: 255, g: 209, b: 222 },
-  { r: 255, g: 160, b: 189 },
-  { r: 255, g: 106, b: 158 },
-  { r: 255, g: 0, b: 128 },
-  { r: 186, g: 26, b: 95 },
-  { r: 121, g: 28, b: 63 },
-  { r: 62, g: 22, b: 34 } ]
+module.exports=[ { "r": 0, "g": 0, "b": 0 },
+  { "r": 21, "g": 21, "b": 21 },
+  { "r": 34, "g": 34, "b": 34 },
+  { "r": 48, "g": 48, "b": 48 },
+  { "r": 63, "g": 63, "b": 63 },
+  { "r": 78, "g": 78, "b": 78 },
+  { "r": 94, "g": 94, "b": 94 },
+  { "r": 111, "g": 111, "b": 111 },
+  { "r": 127, "g": 127, "b": 127 },
+  { "r": 145, "g": 145, "b": 145 },
+  { "r": 162, "g": 162, "b": 162 },
+  { "r": 180, "g": 180, "b": 180 },
+  { "r": 198, "g": 198, "b": 198 },
+  { "r": 217, "g": 217, "b": 217 },
+  { "r": 236, "g": 236, "b": 236 },
+  { "r": 255, "g": 255, "b": 255 },
+  { "r": 255, "g": 207, "b": 191 },
+  { "r": 255, "g": 158, "b": 129 },
+  { "r": 255, "g": 104, "b": 70 },
+  { "r": 255, "g": 0, "b": 0 },
+  { "r": 187, "g": 25, "b": 9 },
+  { "r": 122, "g": 27, "b": 12 },
+  { "r": 63, "g": 21, "b": 8 },
+  { "r": 255, "g": 223, "b": 197 },
+  { "r": 255, "g": 192, "b": 140 },
+  { "r": 255, "g": 160, "b": 82 },
+  { "r": 255, "g": 128, "b": 0 },
+  { "r": 186, "g": 95, "b": 15 },
+  { "r": 121, "g": 64, "b": 18 },
+  { "r": 62, "g": 35, "b": 14 },
+  { "r": 255, "g": 255, "b": 207 },
+  { "r": 255, "g": 255, "b": 158 },
+  { "r": 255, "g": 255, "b": 103 },
+  { "r": 255, "g": 255, "b": 0 },
+  { "r": 185, "g": 185, "b": 25 },
+  { "r": 120, "g": 119, "b": 27 },
+  { "r": 61, "g": 59, "b": 21 },
+  { "r": 231, "g": 255, "b": 206 },
+  { "r": 203, "g": 255, "b": 155 },
+  { "r": 170, "g": 255, "b": 101 },
+  { "r": 128, "g": 255, "b": 0 },
+  { "r": 97, "g": 185, "b": 23 },
+  { "r": 67, "g": 119, "b": 26 },
+  { "r": 38, "g": 60, "b": 20 },
+  { "r": 219, "g": 255, "b": 205 },
+  { "r": 177, "g": 255, "b": 154 },
+  { "r": 125, "g": 255, "b": 100 },
+  { "r": 0, "g": 255, "b": 0 },
+  { "r": 34, "g": 185, "b": 23 },
+  { "r": 36, "g": 119, "b": 25 },
+  { "r": 27, "g": 60, "b": 20 },
+  { "r": 216, "g": 255, "b": 224 },
+  { "r": 173, "g": 255, "b": 192 },
+  { "r": 121, "g": 255, "b": 160 },
+  { "r": 0, "g": 255, "b": 128 },
+  { "r": 33, "g": 185, "b": 95 },
+  { "r": 34, "g": 119, "b": 64 },
+  { "r": 26, "g": 60, "b": 35 },
+  { "r": 219, "g": 255, "b": 255 },
+  { "r": 178, "g": 255, "b": 255 },
+  { "r": 126, "g": 255, "b": 255 },
+  { "r": 0, "g": 255, "b": 255 },
+  { "r": 35, "g": 185, "b": 185 },
+  { "r": 36, "g": 119, "b": 119 },
+  { "r": 27, "g": 60, "b": 59 },
+  { "r": 215, "g": 221, "b": 255 },
+  { "r": 171, "g": 189, "b": 255 },
+  { "r": 118, "g": 157, "b": 255 },
+  { "r": 0, "g": 128, "b": 255 },
+  { "r": 31, "g": 95, "b": 185 },
+  { "r": 33, "g": 63, "b": 119 },
+  { "r": 25, "g": 34, "b": 60 },
+  { "r": 220, "g": 196, "b": 255 },
+  { "r": 179, "g": 139, "b": 255 },
+  { "r": 126, "g": 82, "b": 255 },
+  { "r": 0, "g": 0, "b": 255 },
+  { "r": 35, "g": 14, "b": 185 },
+  { "r": 36, "g": 17, "b": 120 },
+  { "r": 27, "g": 15, "b": 60 },
+  { "r": 232, "g": 201, "b": 255 },
+  { "r": 204, "g": 148, "b": 255 },
+  { "r": 171, "g": 92, "b": 255 },
+  { "r": 128, "g": 0, "b": 255 },
+  { "r": 97, "g": 19, "b": 185 },
+  { "r": 67, "g": 22, "b": 119 },
+  { "r": 38, "g": 18, "b": 60 },
+  { "r": 255, "g": 211, "b": 255 },
+  { "r": 255, "g": 165, "b": 255 },
+  { "r": 255, "g": 112, "b": 255 },
+  { "r": 255, "g": 0, "b": 255 },
+  { "r": 185, "g": 28, "b": 185 },
+  { "r": 120, "g": 30, "b": 119 },
+  { "r": 61, "g": 23, "b": 60 },
+  { "r": 255, "g": 209, "b": 222 },
+  { "r": 255, "g": 160, "b": 189 },
+  { "r": 255, "g": 106, "b": 158 },
+  { "r": 255, "g": 0, "b": 128 },
+  { "r": 186, "g": 26, "b": 95 },
+  { "r": 121, "g": 28, "b": 63 },
+  { "r": 62, "g": 22, "b": 34 } ]
 
 },{}],14:[function(require,module,exports){
 if (typeof Object.create === 'function') {
@@ -2515,5 +2540,5 @@ function hasOwnProperty(obj, prop) {
   return Object.prototype.hasOwnProperty.call(obj, prop);
 }
 
-}).call(this,require("K/m7xv"),typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{"./support/isBuffer":16,"K/m7xv":15,"inherits":14}]},{},[5])
+}).call(this,require("qhDIRT"),typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
+},{"./support/isBuffer":16,"inherits":14,"qhDIRT":15}]},{},[5])
