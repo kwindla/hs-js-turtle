@@ -33,7 +33,7 @@ var TurtleGlobals = {
 
   , '^': st.BoundBuiltin (0, _PenToggle)
 
-  , T: st.BoundBuiltin (2, _Box)
+  , T: st.BoundBuiltin (2, _Rectangle)
 }
 
 
@@ -200,7 +200,7 @@ function _StrokeWidth (exprl, s, k) {
     function (width) { return k (s.turtle.strokeWidth = width) })
 }
 
-function _Box (exprl, s, k) {
+function _Rectangle (exprl, s, k) {
   return s.eval (
     exprl[0], s,
     function (width) {
