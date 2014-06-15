@@ -9,15 +9,8 @@ run this to keep the jsx/ and js/ subdirectories in sync
 
   jsx -w jsx/ js/
 
-we're also loading a browserify'ed bundle of core turtle-svg code. we
-make that by bundling the core js src from our master branch and
-popping the bundle over here into the gh-pages branch
+we're also browserifying the stuff in the js directory to make a
+single app bundle. from the js directory ...
 
-  browserify js-src/turtle-svg-main.js \
-    -o ~/hs-js-turtle-pages/js/turtle-svg-bundle.js
-
-we have two index.html files. 'index.html' is the "production" page
-(such as it is). 'index-dev.html' should be the same except that it
-uses an un-minified react.js. for now we can keep the two in sync by
-hand.
+  /usr/local/share/npm/bin/browserify app.js -o app-bundle.js
 
